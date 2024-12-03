@@ -1,0 +1,10 @@
+cirq-core==1.4.1
+h5py==3.12.1
+networkx==3.4.1
+openfermion==1.6.1
+openfermionpyscf==0.5
+PubChemPy==1.0.4
+pyparsing==3.2.0
+qiskit==1.2.4
+qiskit-algorithms==0.3.1
+qiskit-ibm-runtime==0.33.2
