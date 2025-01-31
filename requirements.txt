@@ -10,5 +10,3 @@ qiskit-algorithms==0.3.1
 qiskit-ibm-runtime==0.33.2
 pytket==1.39.0
 pytket-qiskit==0.63.0
-
-
