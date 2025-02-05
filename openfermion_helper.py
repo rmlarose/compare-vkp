@@ -19,6 +19,7 @@ def get_num_qubits(hamiltonian: of.QubitOperator) -> int:
 def preprocess_hamiltonian(
     hamiltonian: of.QubitOperator,
     drop_term_if = None,
+    verbose: bool = False,
 ) -> cirq.PauliSum:
     """Preprocess the Hamiltonian and convert it to a cirq.PauliSum."""
     if drop_term_if is None:
@@ -26,7 +27,9 @@ def preprocess_hamiltonian(
 
     new = cirq.PauliSum()
 
-    for term in hamiltonian.terms:
+    for i, term in enumerate(hamiltonian.terms):
+        if verbose:
+            print(f"Status: On term {i} = {term}", end="\r")
         add_term = True
 
         for drop_term in drop_term_if:
@@ -41,5 +44,4 @@ def preprocess_hamiltonian(
                     of.QubitOperator(key, hamiltonian.terms.get(term)
                 )
             )))
-
     return new
