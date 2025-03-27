@@ -3,6 +3,7 @@
 from typing import List, Tuple, Dict
 from copy import deepcopy
 import numpy as np
+from scipy.linalg import eigh, eig
 import cirq
 from cirq.contrib.qasm_import import circuit_from_qasm
 import openfermion as of
@@ -74,19 +75,22 @@ def psum_to_mpo(psum: cirq.PauliSum, qs: List[cirq.Qid], max_bond: int) -> qtn.M
 def dmrg_energy(mpo: quimb.tensor.tensor_1d.MatrixProductOperator) -> float:
     """Get energy with quimb's DMRG2 implementation."""
 
-    dmrg = qtn.tensor_dmrg.DMRG2(hamiltonian_mpo)
+    dmrg = qtn.tensor_dmrg.DMRG2(mpo)
     converged = dmrg.solve(bond_dims=10)
     assert converged
     return dmrg.energy
 
 
-def ham_to_trotter_circuit(hamiltonian_qiskit) -> cirq.Circuit:
+def ham_to_trotter_circuit(hamiltonian_qiskit, dt) -> cirq.Circuit:
     """Use paulihedral to get a Trotter circuit, then convert to cirq format
     so it can be simulated with quimb."""
 
     order: int = 1
     cx_structure = "chain"  # "fountain"
-    trotter_step = PauliEvolutionGate(hamiltonian_qiskit, time=1, synthesis=LieTrotter(cx_structure=cx_structure) if order == 1 else SuzukiTrotter(order, cx_structure=cx_structure))
+    trotter_step = PauliEvolutionGate(
+        hamiltonian_qiskit, time=dt, 
+        synthesis=LieTrotter(cx_structure=cx_structure) if order == 1 else SuzukiTrotter(order, cx_structure=cx_structure)
+    )
     circuit = qiskit.QuantumCircuit(hamiltonian_qiskit.num_qubits)
     circuit.append(trotter_step, range(hamiltonian_qiskit.num_qubits))
     circuit = circuit.decompose(reps=2)
@@ -136,12 +140,14 @@ def rte_subspace_matrices(
     s_dict: Dict[int, complex] = {}
     mps = reference_state.copy()
     for i in range(d):
-        # Update the mps.
-        mps = simulate_circuit_on_mps(trotter_circuit, mps)
         # Evaluate <ref|H|psi> and <ref|psi>.
-        h_psi = mps.copy().gate_with_mpo(mpo)
-        h_dict[i] = reference_state.H @ h_psi
+        # TODO draw this.
+        h_dict[i] = reference_state.H @ (mpo @ mps)
         s_dict[i] =  reference_state.H @ mps
+        # Update the mps.
+        for _ in range(10):
+            # TODO Check gating to do power basis
+            mps = simulate_circuit_on_mps(trotter_circuit, mps)
     #  Fill H and S from the dictionaries.
     h = np.zeros((d, d), dtype=complex)
     s = np.zeros((d, d), dtype=complex)
@@ -165,10 +171,23 @@ def main() -> None:
     qs = hamiltonian.qubits
     hamiltonian_mpo = psum_to_mpo(hamiltonian, qs, 8)
     hamiltonian_qiskit = convert.cirq_pauli_sum_to_qiskit_pauli_op(hamiltonian)
-    trotter_circuit = ham_to_trotter_circuit(hamiltonian_qiskit)
+    trotter_circuit = ham_to_trotter_circuit(hamiltonian_qiskit, 1e-2)
     nqubits = len(hamiltonian.qubits)
-    reference_state = qtn.MPS_computational_state("0" * nqubits, cyclic=False) 
-    h, s = rte_subspace_matrices(reference_state, hamiltonian_mpo, trotter_circuit, 4)
+
+    # Solve with DMRG.
+    energy_dmrg = dmrg_energy(hamiltonian_mpo)
+    print("DMRG energy: ", energy_dmrg)
+    # Solve with RTE Kyrlov.
+    num_occupied = 10
+    assert num_occupied <= nqubits
+    reference_state = qtn.MPS_computational_state("1" * num_occupied + "0" * (nqubits - num_occupied), cyclic=False)
+    # TODO h and s appear to be the same!!!
+    h, s = rte_subspace_matrices(reference_state, hamiltonian_mpo, trotter_circuit, 10)
+    np.savetxt("h_mat.txt", h)
+    np.savetxt("s_mat.txt", s)
+    evals, evecs = eig(h, s)
+    print("Krylov solution: ", np.min(evals))
+    print(evals)
     
 
 if __name__ == "__main__":
