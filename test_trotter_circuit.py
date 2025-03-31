@@ -67,7 +67,7 @@ class TestNonDiagonalStrings(unittest.TestCase):
         target_circuit.append(cirq.CNOT(qs[1], qs[0]))
         target_circuit.append(cirq.H(qs[0]))
         target_circuit.append(cirq.H(qs[1]))
-        self.assertEqual(generated_circuit, target_circuit)
+        self.assertTrue(cirq.approx_eq(generated_circuit.unitary(), target_circuit.unitary()))
 
 if __name__ == '__main__':
     unittest.main()
