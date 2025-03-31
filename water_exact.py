@@ -7,38 +7,7 @@ import h5py
 import openfermion as of
 import cirq
 from openfermion.functionals.get_one_norm_test import qubit_hamiltonian
-
-
-def load_water_hamiltonian() -> of.QubitOperator:
-    """Load the water molecule Hamiltonian from its pubchem description, then convert to QubitOperator."""
-
-    geom = of.chem.geometry_from_pubchem("water")
-    basis = "sto-3g"
-    multiplicity = 1
-    charge = 0
-    molecule = of.chem.MolecularData(geom, basis, multiplicity, charge)
-    molecule.load()
-    molecular_hamiltonian = molecule.get_molecular_hamiltonian()
-    fermi_hamiltonian = of.transforms.get_fermion_operator(molecular_hamiltonian)
-    return of.transforms.jordan_wigner(fermi_hamiltonian)
-
-
-def hf_ref_circuit(nqubits: int, noccupied: int) -> cirq.Circuit:
-    """Get a circuit that prepares the state |11..10...0>.
-
-    Arguments:
-    nqubits: The number of qubits in the circuit.
-    noccupied: The number of occupied spin-orbitals (qubits)."""
-
-    ckt = cirq.Circuit()
-    qs = cirq.LineQubit.range(nqubits)
-    for i, q in enumerate(qs):
-        if i < noccupied:
-            ckt.append(cirq.X(q))
-        else:
-            ckt.append(cirq.I(q))
-    return ckt
-
+from krylov_common import hf_ref_circuit, load_water_hamiltonian
 
 def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
     """Get a qubit operator corresponding to N = sum_i a_i^ a_i.

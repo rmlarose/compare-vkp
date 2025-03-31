@@ -2,11 +2,55 @@ from typing import Tuple, List
 from dataclasses import dataclass
 import numpy as np
 import scipy.linalg as la
+import cirq
+import openfermion as of
 import qiskit
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
-import openfermion as of
 import convert
+
+def load_water_hamiltonian() -> of.QubitOperator:
+    """Load the water molecule Hamiltonian from its pubchem description, then convert to QubitOperator."""
+
+    geom = of.chem.geometry_from_pubchem("water")
+    basis = "sto-3g"
+    multiplicity = 1
+    charge = 0
+    molecule = of.chem.MolecularData(geom, basis, multiplicity, charge)
+    molecule.load()
+    molecular_hamiltonian = molecule.get_molecular_hamiltonian()
+    fermi_hamiltonian = of.transforms.get_fermion_operator(molecular_hamiltonian)
+    return of.transforms.jordan_wigner(fermi_hamiltonian)
+
+
+def hf_ref_circuit(nqubits: int, noccupied: int) -> cirq.Circuit:
+    """Get a circuit that prepares the state |11..10...0>.
+
+    Arguments:
+    nqubits: The number of qubits in the circuit.
+    noccupied: The number of occupied spin-orbitals (qubits)."""
+
+    ckt = cirq.Circuit()
+    qs = cirq.LineQubit.range(nqubits)
+    for i, q in enumerate(qs):
+        if i < noccupied:
+            ckt.append(cirq.X(q))
+        else:
+            ckt.append(cirq.I(q))
+    return ckt
+
+
+def hf_ref_circuit_qiskit(nqubits: int, noccupied: int) -> qiskit.QuantumCircuit:
+    """Get a circuit that prepares the state |11..10...0>."""
+
+    ckt = qiskit.QuantumCircuit(nqubits)
+    for i in range(nqubits):
+        if i < noccupied:
+            ckt.x(i)
+        else:
+            ckt.id(i)
+    return ckt
+
 
 def paulihedral_trotter_circuit(ham: of.QubitOperator, dt: float) -> qiskit.QuantumCircuit:
     """Get a circuit for time evolution with the Hamiltonian ham
