@@ -1,5 +1,6 @@
-import numpy as np
+from typing import List, Tuple
 from itertools import product
+import numpy as np
 import cirq
 
 from mitiq import PauliString
@@ -22,6 +23,35 @@ def get_stabilizer_matrix_from_paulis(stabilizers, qubits):
                 stabilizer_matrix[int(key), i] = 1
 
     return stabilizer_matrix
+
+
+def get_stabilizer_matrix_signs(stabilizer_matrix):
+    """If an input string contains Y, then we represent it by
+    XZ = -Y. This function returns (-1)^k for each stabilizer,
+    where k is the number of Y's in the original string.
+    
+    Arguments:
+    stabilizer-matrix - a (2 numq) * nump matrix of the tableau.
+    
+    Returns:
+    signs - List of booleans, where False means the sign is +1, and True
+    means the sign is -1, i.e. we do (-1)^b = (-1)^(k mod 2)"""
+
+    numq = len(stabilizer_matrix) // 2
+    nump = len(stabilizer_matrix[0])
+    
+    signs: List[bool] = []
+    for i in range(nump):
+        p = stabilizer_matrix[:, i]
+        zs = p[:numq]
+        xs = p[numq:]
+        k = 0 # Number of Y's in this string.
+        for z, x in zip(zs, xs):
+            if z == 1.0 and x == 1.0:
+                k += 1
+        signs.append(k % 2 != 0)
+    return signs
+
 
 def get_paulis_from_stabilizer_matrix(stabilizer_matrix):
     paulis = []
@@ -199,3 +229,24 @@ def get_measurement_circuit_tcc(stabilizer_matrix, distance):
         measurement_circuit.append(cirq.H.on(qreg[i]))
 
     return measurement_circuit, np.concatenate((z_matrix, x_matrix))
+
+
+def diagonalize_pauli_strings(
+    paulis: List[cirq.PauliString], qs: List[cirq.Qid]
+) -> Tuple[cirq.Circuit, List[cirq.PauliString]]:
+    """Diagonalize a set of Pauli strings, returning the diagonalizing
+    circuit and the list of diagonalized strings."""
+
+    stabilizer_matrix = get_stabilizer_matrix_from_paulis(paulis, qs)
+    signs = get_stabilizer_matrix_signs(stabilizer_matrix)
+    measurment_circuit, _ = get_measurement_circuit(stabilizer_matrix)
+    conjugated_strings: List[cirq.PauliString] = []
+    for sign, pstring in zip(signs, paulis):
+    #    conjugated_string = pstring.after(measurment_circuit)
+    #    if sign:
+    #        conjugated_strings.append(-1.0 * conjugated_string)
+    #    else:
+    #        conjugated_strings.append(conjugated_string)
+        conjugated_string = pstring.after(measurment_circuit)
+        conjugated_strings.append(conjugated_string)
+    return measurment_circuit, conjugated_strings

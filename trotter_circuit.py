@@ -54,19 +54,11 @@ def commuting_group_exponential_circuit(
         for ps in pstrings:
             qs = qs | set(ps.qubits)
     # Get the diagonalizing circuit U_d and the diagonalized Pauli strings (without coefficients).
-    stabilizer_matrix = diagonalize.get_stabilizer_matrix_from_paulis(pstrings, list(qs))
-    diag_circuit, diag_stabilizer_matrix = diagonalize.get_measurement_circuit(stabilizer_matrix)
-    diagonalized_strings = diagonalize.get_paulis_from_stabilizer_matrix(diag_stabilizer_matrix)
-    # Multiply the diagonalized strings by their original coefficients.
-    coefficients = np.array([ps.coefficient for ps in pstrings])
-    diag_coefficient_pstrings: List[cirq.PauliString] = []
-    for c, ps in zip(coefficients, diagonalized_strings):
-        diag_coefficient_pstrings.append(float(c) * ps)
+    diag_circuit, diagonalized_strings = diagonalize.diagonalize_pauli_strings(pstrings, qs)
     # Construct the circuit U_exp(theta) that exponentiates the diagonalized strings
-    exp_circuit = diagonal_group_exp_circuit(diag_coefficient_pstrings, theta)
+    exp_circuit = diagonal_group_exp_circuit(diagonalized_strings, theta)
     # Return U_d U_exp(theta) U_d^\dagger, the exponential of the commuting group.
     diag_circuit_inverse = cirq.inverse(diag_circuit)
-    breakpoint()
     return diag_circuit + exp_circuit + diag_circuit_inverse
 
 
