@@ -72,11 +72,79 @@ def get_paulis_from_stabilizer_matrix(stabilizer_matrix):
     return paulis
 
 
+def get_linearly_independent_set(stabilizer_matrix: np.ndarray) -> List[int]:
+    """Use the Gram-Schmidt process to get the linearly-independent set of vectors.
+    
+    Returns
+    independent_indices - Indices of columns in the independent set."""
+
+    nump = len(stabilizer_matrix[0])
+
+    # Convert to bool for mod 2 arithmetic.
+    bool_sm = stabilizer_matrix.astype(bool)
+
+    independent_vectors: List[np.ndarray] = [bool_sm[:, 0]]
+    independent_indices: List[int] = [0]
+    if nump > 1:
+        for j in range(1, nump):
+            #print(f"j = {j}")
+            col_copy = np.copy(bool_sm[:, j])
+            #print(f"col_copy = {col_copy}")
+            for liv in independent_vectors:
+                #print(f"liv = {liv}")
+                # Subtract off the component colinear to vector k of the indpendent set.
+                # In mod 2 arithmetic, this is done with XOR.
+                inner = np.vdot(liv, col_copy)
+                #print(f"inner = {inner}")
+                if inner:
+                    col_copy ^= liv
+                #print(f"col_copy = {col_copy}")
+            # If the vector is not zero, append the original column to the set.
+            if np.any(col_copy):
+                # Append the column (without projection onto previous linearly independent vectors)
+                #print(f"Appending j = {j}")
+                independent_vectors.append(col_copy)
+                independent_indices.append(j)
+    # If there is a matrix of all False (0), then we should get rid of it.
+    for vec, idx in zip(independent_vectors, independent_indices):
+        if np.all(np.invert(vec)):
+            independent_vectors.remove(vec)
+            independent_indices.remove(idx)
+    return independent_indices
+
+
+def make_matrix_linealrly_indepdendent(stabilizer_matrix: np.ndarray) -> np.ndarray:
+    """Get the linearly independent columns of the stabilizer matrix."""
+
+    indepedent_indices = get_linearly_independent_set(stabilizer_matrix)
+    cols: List[np.ndarray] = []
+    for idx in indepedent_indices:
+        cols.append(stabilizer_matrix[:, idx])
+    reduced_matrix = np.vstack(cols).T
+    assert reduced_matrix.shape[0] == stabilizer_matrix.shape[0]
+    assert reduced_matrix.shape[1] <= stabilizer_matrix.shape[1]
+    return reduced_matrix
+
+
+def assert_no_zero_column_in_matrix(matrix):
+    """Assert that no column in the matrix is all zeros."""
+
+    for j in range(matrix.shape[1]):
+        assert not np.all(matrix[:, j] == 0.0), \
+            f"Column {j} is all zeros."
+
+
 def get_measurement_circuit(stabilizer_matrix):
     numq = len(stabilizer_matrix) // 2 # number of qubits
     nump = len(stabilizer_matrix[0]) # number of paulis
     z_matrix = stabilizer_matrix.copy()[:numq]
     x_matrix = stabilizer_matrix.copy()[numq:]
+
+    assert_no_zero_column_in_matrix(stabilizer_matrix)
+
+    if nump > 2 * numq:
+        rank = np.linalg.matrix_rank(stabilizer_matrix)
+        raise ValueError(f"nump = {nump} > 2 * numq = 2 * {numq}. Set might be linearly-dependent. Stabilizer matrix has rank {rank}")
 
     measurement_circuit = cirq.Circuit()
     qreg = cirq.LineQubit.range(numq)
@@ -98,19 +166,27 @@ def get_measurement_circuit(stabilizer_matrix):
     
     for j in range(nump):
         if x_matrix[j,j] == 0:
-            i = j + 1
-            while x_matrix[i,j] == 0:
-                i += 1
+            # Find i > j s.t. x_matrix[i, j] = 1.0.
+            found = False
+            for i in range(j + 1, numq):
+                if x_matrix[i, j] != 0:
+                    found = True
+                    break
+            #i = j + 1
+            #while x_matrix[i,j] == 0:
+            #    i += 1
 
-            x_row = x_matrix[i].copy()
-            x_matrix[i] = x_matrix[j]
-            x_matrix[j] = x_row
+            # If i was found, apply a SWAP i <-> j.
+            if found:
+                x_row = x_matrix[i].copy()
+                x_matrix[i] = x_matrix[j]
+                x_matrix[j] = x_row
 
-            z_row = z_matrix[i].copy()
-            z_matrix[i] = z_matrix[j]
-            z_matrix[j] = z_row
+                z_row = z_matrix[i].copy()
+                z_matrix[i] = z_matrix[j]
+                z_matrix[j] = z_row
 
-            measurement_circuit.append(cirq.SWAP.on(qreg[j], qreg[i]))
+                measurement_circuit.append(cirq.SWAP.on(qreg[j], qreg[i]))
 
         for i in range(j + 1, numq):
             if x_matrix[i,j] == 1:
@@ -238,15 +314,15 @@ def diagonalize_pauli_strings(
     circuit and the list of diagonalized strings."""
 
     stabilizer_matrix = get_stabilizer_matrix_from_paulis(paulis, qs)
-    signs = get_stabilizer_matrix_signs(stabilizer_matrix)
-    measurment_circuit, _ = get_measurement_circuit(stabilizer_matrix)
+    if stabilizer_matrix.shape[1] > stabilizer_matrix.shape[0] // 2:
+        reduced_stabilizer_matrix = make_matrix_linealrly_indepdendent(stabilizer_matrix)
+        print("Using Gram-Schmidt.")
+    else:
+        reduced_stabilizer_matrix = stabilizer_matrix.copy()
+        print("Not using Gram-Schmidt.")
+    measurment_circuit, _ = get_measurement_circuit(reduced_stabilizer_matrix)
     conjugated_strings: List[cirq.PauliString] = []
-    for sign, pstring in zip(signs, paulis):
-    #    conjugated_string = pstring.after(measurment_circuit)
-    #    if sign:
-    #        conjugated_strings.append(-1.0 * conjugated_string)
-    #    else:
-    #        conjugated_strings.append(conjugated_string)
+    for pstring in paulis:
         conjugated_string = pstring.after(measurment_circuit)
         conjugated_strings.append(conjugated_string)
     return measurment_circuit, conjugated_strings
