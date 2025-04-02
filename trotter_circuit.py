@@ -1,8 +1,16 @@
-from typing import List, Optional, Collection
+from typing import List, Optional, Collection, Set
 import numpy as np
 import cirq
 import diagonalize
 from kcommute import get_si_sets
+
+def group_qubits(group: List[cirq.PauliString]) -> Set[cirq.Qid]:
+    """Get the support of a group of Pauli strings."""
+
+    qs = set()
+    for ps in group:
+        qs |= set(ps.qubits)
+    return qs
 
 def diagonal_pstring_exponential_circuit(pstring: cirq.PauliString, theta: float) -> cirq.Circuit:
     """Implements exp(-i theta c P), where theta is a real number and P a diagonal Pauli 
@@ -48,6 +56,9 @@ def commuting_group_exponential_circuit(
     """Get the exponential circuit representing exp(-i A theta), where A is a PauliSum
     of mutually commuting Pauli strings, and theta is a real parameter."""
 
+    if qs is not None:
+        assert group_qubits(pstrings).issubset(set(qs))
+
     # Get all qubits the strings act on.
     if qs is None:
         qs = set()
@@ -91,3 +102,21 @@ def first_order_trotter_for_paulisum(psum: cirq.PauliSum, dt: float) -> cirq.Cir
 
     groups = get_si_sets(psum)
     return first_order_trotter_for_grouping(groups, dt)
+
+
+def trotter_multistep_from_groups(
+    groups: List[List[cirq.PauliString]],
+    qs: List[cirq.Qid],
+    tau: float,
+    steps: int
+) -> cirq.Circuit:
+    """Simulate total time tau with a number of first-order steps,
+    each of length tau / steps."""
+
+    assert steps >= 1
+    dt = tau / float(steps)
+    step_circuit = first_order_trotter_for_grouping(groups, dt, qs)
+    total_circuit = cirq.Circuit()
+    for _ in range(steps):
+        total_circuit += step_circuit
+    return total_circuit
