@@ -94,7 +94,7 @@ def get_linearly_independent_set(stabilizer_matrix: np.ndarray) -> List[int]:
                 #print(f"liv = {liv}")
                 # Subtract off the component colinear to vector k of the indpendent set.
                 # In mod 2 arithmetic, this is done with XOR.
-                inner = np.vdot(liv, col_copy)
+                inner = np.sum(liv & col_copy) % 2
                 #print(f"inner = {inner}")
                 if inner:
                     col_copy ^= liv
@@ -164,7 +164,7 @@ def get_measurement_circuit(stabilizer_matrix):
             x_matrix = candidate_matrix
             break
     
-    for j in range(nump):
+    for j in range(min(nump, numq)):
         if x_matrix[j,j] == 0:
             # Find i > j s.t. x_matrix[i, j] = 1.0.
             found = False
