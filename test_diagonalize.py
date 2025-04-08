@@ -42,69 +42,69 @@ class TestSigns(unittest.TestCase):
         self.assertEqual(target_signs, signs)
 
 
-class TestGramSchmidt(unittest.TestCase):
-    """Test the Gram-Schmidt procedure on simple cases."""
+class TestBinaryGaussian(unittest.TestCase):
 
-    def test_xxi_ixx(self):
-        """Test the set {XXI, IXX}, which should leave it untouched
-        (the two are linearly independent)."""
+    def test_110_011_101(self):
+        """If we put in the binary vectors [110], [011], and [101],
+        we know that [110] ^ [011] = [101], so we should eliminate the last row."""
 
-        stabilizer_matrix = np.zeros((6, 2), dtype=bool)
-        stabilizer_matrix[3, 0] = True
-        stabilizer_matrix[4, 0] = True
-        stabilizer_matrix[4, 1] = True
-        stabilizer_matrix[5, 1] = True
-        independent_indices = diagonalize.get_linearly_independent_set(stabilizer_matrix)
-        self.assertTrue(independent_indices == [0, 1])
+        input_matrix = np.array([[True, True, False], [False, True, True], [True, False, True]])
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        target_matrix = input_matrix[:2, :]
+        self.assertTrue(np.all(target_matrix == output_matrix))
 
-    def test_xxi_ixx_xxx(self):
-        """Test the set {XXI, IXX, XXX}. The matrix should be the same.
-        N.b. XXI + IXX = IXI."""
+    def test_011_110_101(self):
+        """If we put in the binary vectors [011], [110], and [101],
+        we know that [110] ^ [011] = [101], so we should eliminate the last row."""
 
-        stabilizer_matrix = np.zeros((6, 3), dtype=bool)
-        stabilizer_matrix[3, 0] = True
-        stabilizer_matrix[4, 0] = True
-        stabilizer_matrix[4, 1] = True
-        stabilizer_matrix[5, 1] = True
-        stabilizer_matrix[3, 2] = True
-        stabilizer_matrix[4, 2] = True
-        stabilizer_matrix[5, 2] = True
-        independent_indices = diagonalize.get_linearly_independent_set(stabilizer_matrix)
-        self.assertTrue(independent_indices == [0, 1, 2])
-
-    def test_xii_iix_xix(self):
-        """Test the set {XII, IIX, XIX}. The last column should go away."""
-
-        stabilizer_matrix = np.zeros((6, 3), dtype=bool)
-        stabilizer_matrix[3, 0] = True
-        stabilizer_matrix[5, 1] = True
-        stabilizer_matrix[3, 2] = True
-        stabilizer_matrix[5, 2] = True
-        independent_indices = diagonalize.get_linearly_independent_set(stabilizer_matrix)
-        target_indices = [0, 1]
-        self.assertTrue(independent_indices == target_indices)
+        input_matrix = np.array([[False, True, True], [True, True, False], [True, False, True]])
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        #print(f"ouptut_matrix=\n", output_matrix)
+        target_matrix = np.vstack([input_matrix[1, :], input_matrix[0, :]])
+        self.assertTrue(np.all(target_matrix == output_matrix))
     
-    def test_ii_iz(self):
-        """If a vector of all identity is in the matrix, this is just a matrix of zeros.
-        It should be thrown out."""
+    def test_100_010_001(self):
+        """If we pass in a diagonal matrix, it should remain untouched."""
 
-        stabilizer_matrix = np.zeros((4, 2), dtype=bool)
-        stabilizer_matrix[1, 1] = True
-        independent_indices = diagonalize.get_linearly_independent_set(stabilizer_matrix)
-        target_indices = [1]
-        self.assertTrue(independent_indices == target_indices)
+        input_matrix = np.eye(5).astype(bool)
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        target_matrix = input_matrix.copy()
+        self.assertTrue(np.all(target_matrix == output_matrix))
     
-    def test_x_y_z(self):
-        """If we take the set {X, Y, Z}, the second one should be thrown out (Y prop. XZ)."""
+    def test_110_001_111(self):
+        """In the set [110], [001], and [111], [111] should be cast out."""
 
-        stabilizer_matrix = np.zeros((2, 3), dtype=bool)
-        stabilizer_matrix[1, 0] = True
-        stabilizer_matrix[0, 1] = True
-        stabilizer_matrix[0, 2] = True
-        stabilizer_matrix[1, 2] = True
-        independent_indices = diagonalize.get_linearly_independent_set(stabilizer_matrix)
-        self.assertEqual(independent_indices, [0, 1])
+        input_matrix = np.array([[True, True, False], [False, False, True], [True, True, True]])
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        target_matrix = input_matrix[:2, :]
+        self.assertTrue(np.all(target_matrix == output_matrix))
+    
+    def test_1100_0011_1111(self):
+        """The last row should be thrown out!"""
 
+        input_matrix = np.array([
+            [True, True, False, False],
+            [False, False, True, True,],
+            [True, True, True, True]
+        ])
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        target_matrix = input_matrix[:2, :]
+        self.assertTrue(np.all(output_matrix == target_matrix))
+    
+    def test_four_qubit_xx_yy_zz(self):
+        """Test the set {X_1 X_2, Y_1 Y_2, Z_1 Z_2, X_3 X_4, Y_3 Y_4, Z_3 Z_4}"""
+
+        input_matrix = np.array([
+            [1, 1, 0, 0, 0, 0, 0, 0], # X_1 X_2
+            [1, 1, 0, 0, 1, 1, 0, 0], # Y_1 Y_2
+            [0, 0, 0, 0, 1, 1, 0, 0], # Z_1 Z_2
+            [0, 0, 1, 1, 0, 0, 0, 0], # X_3 X_4
+            [0, 0, 1, 1, 0, 0, 1, 1], # Y_3 Y_4
+            [0, 0, 0, 0, 0, 0, 1, 1], # Z_3 Z_4
+        ]).astype(bool)
+        output_matrix = diagonalize.binary_gaussian_elimination(input_matrix)
+        test_matrix = np.vstack([input_matrix[0, :], input_matrix[3, :], input_matrix[2, :], input_matrix[5, :]])
+        self.assertTrue(np.all(test_matrix == output_matrix))
 
 if __name__ == "__main__":
     unittest.main()
