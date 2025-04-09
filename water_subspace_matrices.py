@@ -15,7 +15,7 @@ def main():
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     assert len(ham_paulisum.qubits) == nq
     assert set(ham_paulisum.qubits).issubset(set(qs))
-    groups = get_si_sets(ham_paulisum, k=nq)
+    groups = get_si_sets(ham_paulisum, k=1)
     tau = 1e-3 # Total time step for evolution unitary.
     steps = 1 # Number of steps per evolution unitary.
     evolution_ckt = trotter_multistep_from_groups(

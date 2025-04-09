@@ -29,7 +29,9 @@ def diagonal_pstring_exponential_circuit(pstring: cirq.PauliString, theta: float
         if len(support) > 1:
             for q in reversed(support[1:]):
                 circuit.append(cirq.CX(q, support[0]))
-        circuit.append(cirq.rz(2.0 * theta * pstring.coefficient).on(support[0]))
+        assert abs(pstring.coefficient.imag) <= 1e-7, \
+            f"Pauli string {pstring} has coefficient with imaginary part {pstring.coefficient.imag}."
+        circuit.append(cirq.rz(2.0 * theta * pstring.coefficient.real).on(support[0]))
         if len(support) > 1:
             for q in support[1:]:
                 circuit.append(cirq.CX(q, support[0]))

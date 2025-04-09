@@ -170,8 +170,8 @@ def get_measurement_circuit(stabilizer_matrix):
     if nump > numq:
         raise ValueError(f"nump = {nump} > numq = {numq}. More columns than qubits.")
     
-    if nump < numq:
-        raise ValueError("nump = {nump} < numq = {numq}.")
+    # if nump < numq:
+    #     raise ValueError("nump = {nump} < numq = {numq}.")
 
     measurement_circuit = cirq.Circuit()
     qreg = cirq.LineQubit.range(numq)
@@ -343,6 +343,15 @@ def is_pauli_diagonal(pstring: cirq.PauliString) -> bool:
     return True
 
 
+def _assert_x_bits_all_zero(stabilizer_matrix: np.ndarray):
+    """Check that the lower half of the stabilizer matrix has all 0's."""
+
+    numq = len(stabilizer_matrix) // 2
+    s_x = stabilizer_matrix[numq:]
+    assert np.all(np.invert(s_x.astype(bool))), \
+        f"S_x =\n{s_x}\nsize {s_x.shape} has ones in it."
+
+
 def diagonalize_pauli_strings(
     paulis: List[cirq.PauliString], qs: List[cirq.Qid]
 ) -> Tuple[cirq.Circuit, List[cirq.PauliString]]:
@@ -350,21 +359,31 @@ def diagonalize_pauli_strings(
     circuit and the list of diagonalized strings."""
 
     stabilizer_matrix = get_stabilizer_matrix_from_paulis(paulis, qs)
-    if stabilizer_matrix.shape[1] > stabilizer_matrix.shape[0] // 2:
-        print("Using Gram-Schmidt.")
-        print(stabilizer_matrix)
-        print(f"Matrix has {stabilizer_matrix.shape[1]} columns.")
-        reduced_stabilizer_matrix = get_linearly_independent_set(stabilizer_matrix)
-        print(f"After, matrix has {reduced_stabilizer_matrix.shape[1]} columns.")
-        print(reduced_stabilizer_matrix)
-    else:
-        reduced_stabilizer_matrix = stabilizer_matrix.copy()
-        print("Not using Gram-Schmidt.")
-    measurment_circuit, _ = get_measurement_circuit(reduced_stabilizer_matrix)
+    # if stabilizer_matrix.shape[1] > stabilizer_matrix.shape[0] // 2:
+    #     print("Using Gram-Schmidt.")
+    #     print(stabilizer_matrix)
+    #     print(f"Matrix has {stabilizer_matrix.shape[1]} columns.")
+    #     reduced_stabilizer_matrix = get_linearly_independent_set(stabilizer_matrix)
+    #     print(f"After, matrix has {reduced_stabilizer_matrix.shape[1]} columns.")
+    #     print(reduced_stabilizer_matrix)
+    # else:
+    #     reduced_stabilizer_matrix = stabilizer_matrix.copy()
+    #     print("Not using Gram-Schmidt.")
+    print("Using Gram-Schmidt.")
+    print(stabilizer_matrix)
+    print(f"Matrix has {stabilizer_matrix.shape[1]} columns.")
+    reduced_stabilizer_matrix = get_linearly_independent_set(stabilizer_matrix)
+    print(f"After, matrix has {reduced_stabilizer_matrix.shape[1]} columns.")
+    print(reduced_stabilizer_matrix)
+    print(f"Reduced stabilizer matrix has shape {reduced_stabilizer_matrix.shape}.")
+    measurement_circuit, diag_stabilizer_matrix = get_measurement_circuit(reduced_stabilizer_matrix)
+    print("Diagonalized stabilizer matrix =")
+    print(diag_stabilizer_matrix)
+    _assert_x_bits_all_zero(diag_stabilizer_matrix)
     conjugated_strings: List[cirq.PauliString] = []
     for pstring in paulis:
-        conjugated_string = pstring.after(measurment_circuit)
+        conjugated_string = pstring.after(measurement_circuit)
         conjugated_strings.append(conjugated_string)
         assert is_pauli_diagonal(conjugated_string), \
             f"Pauli string {conjugated_string} is not diagonal. Originally was {pstring}"
-    return measurment_circuit, conjugated_strings
+    return measurement_circuit, conjugated_strings
