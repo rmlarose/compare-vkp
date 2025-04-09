@@ -23,7 +23,7 @@ def main():
     h = 4.5
     jj = [1.0, 2.0, 3.0]
     ham = tfim_hamiltonian(4, h, jj)
-    groups = get_si_sets(ham, len(ham.qubits))
+    groups = get_si_sets(ham, 1)
     for i, group in enumerate(groups):
         print(f"group {i}\n", group)
     for group in groups:

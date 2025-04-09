@@ -4,7 +4,7 @@ from kcommute import get_si_sets
 from diagonalize import diagonalize_pauli_strings
 
 def main():
-    ham_of = of.hamiltonians.fermi_hubbard(3, 6, 1.0, 2.0, spinless=False)
+    ham_of = of.hamiltonians.fermi_hubbard(3, 3, 1.0, 2.0, spinless=False)
     ham_qubit = of.transforms.jordan_wigner(ham_of)
     ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham_qubit)
     groups = get_si_sets(ham_cirq, len(ham_cirq.qubits))

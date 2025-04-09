@@ -5,6 +5,8 @@ import numpy as np
 import cirq
 
 from mitiq import PauliString
+from qiskit.synthesis import stabilizer
+
 
 def get_stabilizer_matrix_from_paulis(stabilizers, qubits):
     numq = len(qubits)
@@ -77,12 +79,26 @@ def get_linearly_independent_set(stabilizer_matrix: np.ndarray) -> np.ndarray:
     """Use the Gaussian elimination to get the linearly-independent set of vectors.
     
     Returns
-    independent_indices - Indices of columns in the independent set."""
+    independent_columns - Matrix with the linearly independent columns."""
 
     # Convert to bool for mod 2 arithmetic.
     bool_sm = stabilizer_matrix.astype(bool)
-    reduced_matrix = binary_gaussian_elimination(bool_sm.T)
-    return reduced_matrix.T
+    reduced_matrix = binary_gaussian_elimination(bool_sm)
+    # Find the pivot columns.
+    next_pivot = 0 # Row of next pivot
+    pivot_columns: List[int] = []
+    for j in range(reduced_matrix.shape[1]):
+        if next_pivot >= reduced_matrix.shape[0]:
+            break
+        if reduced_matrix[next_pivot, j]:
+            pivot_columns.append(j)
+            next_pivot += 1
+    independent_columns = stabilizer_matrix[:, pivot_columns]
+    assert independent_columns.shape[0] == stabilizer_matrix.shape[0], \
+        f"{independent_columns.shape[0]} != {stabilizer_matrix.shape[0]}"
+    assert independent_columns.shape[1] <= stabilizer_matrix.shape[1], \
+        f"{independent_columns.shape[1]} != {stabilizer_matrix.shape[1]}"
+    return independent_columns
 
 
 def binary_gaussian_elimination(matrix: np.ndarray) -> np.ndarray:
@@ -129,14 +145,7 @@ def binary_gaussian_elimination(matrix: np.ndarray) -> np.ndarray:
             next_row += 1
     if do_print:
         print("Final reduced matrix\n", mat)
-    #  Find all the rows that are not all False.
-    non_zero_rows: List[np.ndarray] = []
-    for i in range(mat.shape[0]):
-        if not np.all(np.invert(mat[i, :])):
-            if do_print:
-                print(f"Appending row {i}")
-            non_zero_rows.append(mat[i, :])
-    return np.vstack(non_zero_rows)
+    return mat
 
 
 def assert_no_zero_column_in_matrix(matrix):
@@ -160,6 +169,9 @@ def get_measurement_circuit(stabilizer_matrix):
 
     if nump > numq:
         raise ValueError(f"nump = {nump} > numq = {numq}. More columns than qubits.")
+    
+    if nump < numq:
+        raise ValueError("nump = {nump} < numq = {numq}.")
 
     measurement_circuit = cirq.Circuit()
     qreg = cirq.LineQubit.range(numq)
@@ -354,5 +366,5 @@ def diagonalize_pauli_strings(
         conjugated_string = pstring.after(measurment_circuit)
         conjugated_strings.append(conjugated_string)
         assert is_pauli_diagonal(conjugated_string), \
-            f"Pauli string {conjugated_string} is not diagonal."
+            f"Pauli string {conjugated_string} is not diagonal. Originally was {pstring}"
     return measurment_circuit, conjugated_strings
