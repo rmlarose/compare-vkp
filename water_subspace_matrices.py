@@ -22,10 +22,10 @@ def main():
         groups, qs, tau, steps
     )
     # Convert circuits to QASM.
-    prep_ckt_qasm = cirq.qasm(state_prep_ckt, args=cirq.QasmArgs(version="3.0"))
-    evolution_ckt_qasm = cirq.qasm(evolution_ckt, args=cirq.QasmArgs(version="3.0"))
+    prep_ckt_qasm = cirq.qasm(state_prep_ckt)
+    evolution_ckt_qasm = cirq.qasm(evolution_ckt)
     # Compute the subspace matrices.
-    d_max = 3
+    d_max = 25
     h, s = kc.subspace_matrices(hamiltonian, state_prep_ckt, evolution_ckt, d_max)
     # Write to file.
     f = h5py.File("subspace_matrices.h5", "w")
