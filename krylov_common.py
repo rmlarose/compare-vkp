@@ -40,6 +40,19 @@ def hf_ref_circuit(nqubits: int, noccupied: int) -> cirq.Circuit:
     return ckt
 
 
+def neel_state_circuit(nqubits: int) -> cirq.Circuit:
+    """Circuit to build a Neel state |101010...> on a number of qubits."""
+
+    qs = cirq.LineQubit.range(nqubits)
+    ckt = cirq.Circuit()
+    for i, q in enumerate(qs):
+        if i % 2 == 0:
+            ckt.append(cirq.X(q))
+        else:
+            ckt.append(cirq.I(q))
+    return ckt
+
+
 def hf_ref_circuit_qiskit(nqubits: int, noccupied: int) -> qiskit.QuantumCircuit:
     """Get a circuit that prepares the state |11..10...0>."""
 
@@ -76,8 +89,8 @@ def _get_state_cirq(
     for _ in range(d):
         total_circuit += evolution_circuit
     sim = cirq.Simulator()
-    sim_result = sim.simualte(total_circuit)
-    return sim_result.final_statevector
+    sim_result = sim.simulate(total_circuit)
+    return sim_result.final_state_vector
 
 
 def _get_state_qiskit(
@@ -120,31 +133,40 @@ def subspace_matrices(
         reference_state = qiskit.quantum_info.Statevector(state_prep_circuit).data
     else:
         sim = cirq.Simulator()
-        sim_result = sim.simualte(state_prep_circuit)
-        reference_state = sim_result.final_statevector
+        sim_result = sim.simulate(state_prep_circuit)
+        reference_state = sim_result.final_state_vector
 
     ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
     ham_matrix = ham_cirq.matrix()
 
     h = np.zeros((d, d), dtype=complex)
     s = np.zeros((d, d), dtype=complex)
+    print("Computing subspace matrices.")
+    # Compute matrix element like <phi| H U^k |phi> etc.
+    overlaps = [] # <phi| U^k |phi>
+    mat_elems = []
     for k in range(d):
-        # Compute the state vector for U^d |ref>.
+        print(f"On {k} / {d}")
+        # Compute the state vectors for U^k |ref> and (U^dag)^k |ref.
         if isinstance(state_prep_circuit, cirq.Circuit):
-            evolved_state = _get_state_cirq(state_prep_circuit, evolution_circuit, d)
+            evolved_state = _get_state_cirq(state_prep_circuit, evolution_circuit, k)
         else:
-            evolved_state = _get_state_qiskit(state_prep_circuit, evolution_circuit, d)
-        overlap = np.vdot(reference_state, evolved_state)
-        mat_elem = np.vdot(reference_state, ham_matrix @ evolved_state)
-        # Assign all elements of S and H for which |i-j| = k.
-        for i in range(d):
-            for j in range(d):
-                if i - j == k:
-                    s[i, j] = overlap
-                    h[i, j] = mat_elem
-                if j - i == k:
-                    s[i, j] = overlap.conjugate()
-                    h[i, j] = mat_elem.conjugate()
+            evolved_state = _get_state_qiskit(state_prep_circuit, evolution_circuit, k)
+        overlaps.append(np.vdot(reference_state, evolved_state))
+        mat_elems.append(np.vdot(reference_state, ham_matrix @ evolved_state))
+    # Fill the matrix.
+    for i in range(d): # Loop over rows.
+        for j in range(d):
+            if i == j:
+                h[i, i] = mat_elems[0]
+                s[i, i] = overlaps[0]
+            elif i > j:
+                h[i, j] = mat_elems[i - j]
+                s[i, j] = overlaps[i - j]
+            else: # i < j
+                h[i, j] = mat_elems[j - i].conjugate()
+                s[i, j] = overlaps[j - i].conjugate()
+    #breakpoint()
     assert la.ishermitian(h)
     assert la.ishermitian(s)
     return h, s
