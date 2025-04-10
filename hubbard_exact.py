@@ -22,6 +22,7 @@ def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
 
 
 def main():
+    # Build the Fermi-Hubbard Hamiltonian.
     #ham: of.QubitOperator = load_water_hamiltonian()
     ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
@@ -33,20 +34,34 @@ def main():
     sim = cirq.Simulator()
     sim_result = sim.simulate(ref_circuit)
     ref_state = sim_result.final_state_vector
-    # Use scipy to get eigenvectors.
+    # We will solve the eigenvalue problem with H -> H + alpha (N - N_occ)^2,
+    # where N_occ is the number of the
+    number_operator: of.QubitOperator = total_number_qubit_operator(nq)
+    number_operator_sparse = of.linalg.qubit_operator_sparse(number_operator)
+    reference_number_expectation = np.vdot(ref_state, number_operator_sparse @ ref_state)
+    regularizer = (number_operator - reference_number_expectation) ** 2
+    alpha = 10.0
+    ham_regularized = ham + alpha * regularizer
+    # Use scipy to get eigenvectors of the number-regularized Hamiltonian.
     ham_sparse = of.linalg.qubit_operator_sparse(ham, n_qubits=nq)
-    energies, eigenvectors = eigsh(
-        ham_sparse,
+    ham_reg_sparse = of.linalg.qubit_operator_sparse(ham_regularized, n_qubits=nq)
+    reg_energies, eigenvectors = eigsh(
+        ham_reg_sparse,
         k=2,
         which='SA',
         maxiter=10_000
     )
-    print(f"Final energy: {energies[0]}")
+    # Get the expectation of the original Hamiltonian.
+    energies = np.zeros(2, dtype=complex)
+    norm0 = np.vdot(eigenvectors[:, 0], eigenvectors[:, 0])
+    energies[0] = np.vdot(eigenvectors[:, 0], ham_sparse @ eigenvectors[:, 0]) / norm0
+    norm1 = np.vdot(eigenvectors[:, 1], eigenvectors[:, 1])
+    energies[1] = np.vdot(eigenvectors[:, 1], ham_sparse @ eigenvectors[:, 1]) / norm1
+    print(f"Energy = {energies[0]}")
     # Get the expectation of the number operator.
-    number_operator: of.QubitOperator = total_number_qubit_operator(nq)
-    number_operator_sparse = of.linalg.qubit_operator_sparse(number_operator)
     number_expectation = np.vdot(eigenvectors[:, 0], number_operator_sparse @ eigenvectors[:, 0])
     print(f"Number expectation = {number_expectation}")
+    print(f"Reference state number expectation = {reference_number_expectation}")
     # Output to HDF5
     f = h5py.File("hubbard_exact.h5", "w")
     nq_dset = f.create_dataset("nq", data=nq)
@@ -54,7 +69,8 @@ def main():
     ref_state_dset = f.create_dataset("ref_state", data=ref_state)
     energies_dset = f.create_dataset("energies", data=energies)
     eigenvector_dset = f.create_dataset("eigenvectors", data=eigenvectors)
-    number_operator_dset = f.create_dataset("number_operator", data=number_expectation)
+    number_exp_dset = f.create_dataset("number_expectation", data=number_expectation)
+    ref_num_dset = f.create_dataset("reference_number_expectation", data=reference_number_expectation)
     f.close()
 
 if __name__ == "__main__":

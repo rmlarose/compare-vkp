@@ -1,3 +1,4 @@
+import argparse
 import pickle
 import h5py
 import cirq
@@ -7,6 +8,13 @@ from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("tau", type=float, help="Evolution time for U.")
+    parser.add_argument("steps", type=int, help="Number of steps for U.")
+    parser.add_argument("d", type=int, help="Subspace dimension")
+    parser.add_argument("output_file", type=str, help="Output filename.")
+    args = parser.parse_args()
+
     #hamiltonian = kc.load_water_hamiltonian()
     ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
     hamiltonian: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
@@ -22,8 +30,8 @@ def main():
     groups = get_si_sets(ham_paulisum, k=1)
     with open("hubbard_groups.pkl", "wb") as f:
         pickle.dump(groups, f)
-    tau = 1e-3 # Total time step for evolution unitary.
-    steps = 1 # Number of steps per evolution unitary.
+    tau = args.tau
+    steps = args.steps
     evolution_ckt = trotter_multistep_from_groups(
         groups, qs, tau, steps
     )
@@ -31,10 +39,10 @@ def main():
     prep_ckt_qasm = cirq.qasm(state_prep_ckt)
     evolution_ckt_qasm = cirq.qasm(evolution_ckt)
     # Compute the subspace matrices.
-    d_max = 2 ** nq
+    d_max = args.d
     h, s = kc.subspace_matrices(hamiltonian, state_prep_ckt, evolution_ckt, d_max)
     # Write to file.
-    f = h5py.File("hubbard_subspace_matrices.h5", "w")
+    f = h5py.File(args.output_file, "w")
     f.create_dataset("tau", data=tau)
     f.create_dataset("steps", data=steps)
     f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
