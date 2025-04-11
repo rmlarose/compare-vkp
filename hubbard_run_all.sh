@@ -1,4 +1,4 @@
-tau=1e-1
+tau=0.05
 d=16
 
 for steps in 1 10 20 30 50 100
