@@ -47,7 +47,7 @@ def main():
     ham_reg_sparse = of.linalg.qubit_operator_sparse(ham_regularized, n_qubits=nq)
     reg_energies, eigenvectors = eigsh(
         ham_reg_sparse,
-        k=2,
+        k=6,
         which='SA',
         maxiter=10_000
     )
@@ -55,9 +55,16 @@ def main():
     energies = np.zeros(2, dtype=complex)
     norm0 = np.vdot(eigenvectors[:, 0], eigenvectors[:, 0])
     energies[0] = np.vdot(eigenvectors[:, 0], ham_sparse @ eigenvectors[:, 0]) / norm0
-    norm1 = np.vdot(eigenvectors[:, 1], eigenvectors[:, 1])
-    energies[1] = np.vdot(eigenvectors[:, 1], ham_sparse @ eigenvectors[:, 1]) / norm1
+    exc_idx = 2
+    norm1 = np.vdot(eigenvectors[:, exc_idx], eigenvectors[:, exc_idx])
+    energies[1] = np.vdot(eigenvectors[:, exc_idx], ham_sparse @ eigenvectors[:, exc_idx]) / norm1
+    ref_norm = np.vdot(ref_state, ref_state)
+    ref_energy = np.vdot(ref_state, ham_sparse @ ref_state)
+    assert abs(energies[0] - energies[1]) >= 1e-14, \
+        f"Energies must be non-degenerate, but got gap = {abs(energies[0] - energies[1])}."
     print(f"Energy = {energies[0]}")
+    print(f"Energy gap = {abs(energies[1] - energies[0])}.")
+    print(f"Reference energy = {ref_energy}.")
     # Get the expectation of the number operator.
     number_expectation = np.vdot(eigenvectors[:, 0], number_operator_sparse @ eigenvectors[:, 0])
     print(f"Number expectation = {number_expectation}")
@@ -71,6 +78,7 @@ def main():
     eigenvector_dset = f.create_dataset("eigenvectors", data=eigenvectors)
     number_exp_dset = f.create_dataset("number_expectation", data=number_expectation)
     ref_num_dset = f.create_dataset("reference_number_expectation", data=reference_number_expectation)
+    ref_energy_dset = f.create_dataset("reference_energy", data=ref_energy)
     f.close()
 
 if __name__ == "__main__":
