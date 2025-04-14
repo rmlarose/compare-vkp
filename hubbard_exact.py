@@ -7,7 +7,7 @@ import h5py
 import openfermion as of
 import cirq
 from openfermion.functionals.get_one_norm_test import qubit_hamiltonian
-from krylov_common import neel_state_circuit, load_water_hamiltonian
+from krylov_common import neel_state_circuit, load_hubbard_hamiltonian
 
 def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
     """Get a qubit operator corresponding to N = sum_i a_i^ a_i.
@@ -24,8 +24,7 @@ def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
 def main():
     # Build the Fermi-Hubbard Hamiltonian.
     #ham: of.QubitOperator = load_water_hamiltonian()
-    ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
-    ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
+    ham: of.QubitOperator = load_hubbard_hamiltonian()
     nq = of.count_qubits(ham)
     nterms = len(ham.terms)
     # Get a circuit and vector for the reference state.

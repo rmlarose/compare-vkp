@@ -1,7 +1,7 @@
 tau=0.05
 d=16
 
-for steps in 1 10 20 30 50 100
+for steps in 1 10 20 30 50 100 400
 do
     subspace_file="data/hubbard_subspace_${steps}_steps.h5"
     eigvals_file="data/hubbard_eigvals_${steps}_steps.h5"

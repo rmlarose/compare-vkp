@@ -57,6 +57,7 @@ def main():
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy"])
     df.index.name = "i"
     df.to_hdf(args.output_file, key="eigenvalues", index=False)
+    df.to_csv("eigenvalues.csv")
     f_out = h5py.File(args.output_file, "a")
     f_out.create_dataset("tau", data=tau_input)
     f_out.create_dataset("steps", data=steps_input)
