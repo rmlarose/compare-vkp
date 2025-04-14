@@ -369,16 +369,8 @@ def diagonalize_pauli_strings(
     # else:
     #     reduced_stabilizer_matrix = stabilizer_matrix.copy()
     #     print("Not using Gram-Schmidt.")
-    print("Using Gram-Schmidt.")
-    print(stabilizer_matrix)
-    print(f"Matrix has {stabilizer_matrix.shape[1]} columns.")
     reduced_stabilizer_matrix = get_linearly_independent_set(stabilizer_matrix)
-    print(f"After, matrix has {reduced_stabilizer_matrix.shape[1]} columns.")
-    print(reduced_stabilizer_matrix)
-    print(f"Reduced stabilizer matrix has shape {reduced_stabilizer_matrix.shape}.")
     measurement_circuit, diag_stabilizer_matrix = get_measurement_circuit(reduced_stabilizer_matrix)
-    print("Diagonalized stabilizer matrix =")
-    print(diag_stabilizer_matrix)
     _assert_x_bits_all_zero(diag_stabilizer_matrix)
     conjugated_strings: List[cirq.PauliString] = []
     for pstring in paulis:
