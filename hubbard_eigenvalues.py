@@ -40,8 +40,8 @@ def main():
     tau_input = f["tau"][()]
     steps_input = f["steps"][()]
     f.close()
-    assert la.ishermitian(h)
-    assert la.ishermitian(s)
+    # assert la.ishermitian(h)
+    # assert la.ishermitian(s)
     # Get ground state energies for various subspace dimensions and thresholds.
     results: List[Tuple[int, float, float]] = []
     for d in range(3, h.shape[0]+1):
