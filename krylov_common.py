@@ -23,6 +23,13 @@ def load_water_hamiltonian() -> of.QubitOperator:
     return of.transforms.jordan_wigner(fermi_hamiltonian)
 
 
+def load_hubbard_hamiltonian() -> of.QubitOperator:
+    """Load a 2D Fermi-Hubbard Hamiltonian."""
+
+    ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
+    ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
+
+
 def hf_ref_circuit(nqubits: int, noccupied: int) -> cirq.Circuit:
     """Get a circuit that prepares the state |11..10...0>.
 
@@ -50,6 +57,18 @@ def neel_state_circuit(nqubits: int) -> cirq.Circuit:
             ckt.append(cirq.X(q))
         else:
             ckt.append(cirq.I(q))
+    return ckt
+
+
+def neel_state_circuit_qiskit(nqubits: int) -> cirq.Circuit:
+    """Circuit to build a Neel state |101010...> on a number of qubits."""
+
+    ckt = qiskit.QuantumCircuit(nqubits)
+    for i in range(nqubits):
+        if i % 2 == 0:
+            ckt.x(i)
+        else:
+            ckt.id(i)
     return ckt
 
 
