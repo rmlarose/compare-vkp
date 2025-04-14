@@ -119,8 +119,8 @@ def _get_state_qiskit(
 
     total_circuit = state_prep_circuit.copy()
     for _ in range(d):
-        total_circuit += total_circuit.compose(evolution_circuit)
-    return qiskit.quantum_info.Statevector(total_circuit)
+        total_circuit = total_circuit.compose(evolution_circuit)
+    return qiskit.quantum_info.Statevector(total_circuit).data
 
 
 def subspace_matrices(
