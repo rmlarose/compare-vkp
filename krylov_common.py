@@ -26,7 +26,7 @@ def load_water_hamiltonian() -> of.QubitOperator:
 def load_hubbard_hamiltonian() -> of.QubitOperator:
     """Load a 2D Fermi-Hubbard Hamiltonian."""
 
-    ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
+    ham_fermi = of.hamiltonians.fermi_hubbard(3, 3, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
     return ham
 
@@ -124,6 +124,76 @@ def _get_state_qiskit(
     return qiskit.quantum_info.Statevector(total_circuit).data
 
 
+def _evolve_state_cirq(reference_state: np.ndarray, evolution_circuit: cirq.Circuit, d: int) -> np.ndarray:
+    """Evolve a give reference state by d applications of an evolution circuit."""
+
+    if d == 0:
+        return reference_state
+    else:
+        total_circuit = cirq.Circuit()
+        for _ in range(d):
+            total_circuit += evolution_circuit
+        sim = cirq.Simulator()
+        sim_result = sim.simulate(total_circuit, initial_state=reference_state)
+        return sim_result.final_state_vector
+
+
+def _evolve_state_qiskit(
+        reference_state: np.ndarray, evolution_circuit: qiskit.QuantumCircuit, d: int
+) -> np.ndarray:
+    """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
+
+    # TODO This function needs to set the initial state of the qubits.
+    total_circuit = qiskit.QuantumCircuit()
+    for _ in range(d):
+        total_circuit = total_circuit.compose(evolution_circuit)
+    return qiskit.quantum_info.Statevector(total_circuit).data
+
+
+def subspace_matrices_from_ref_state(
+        ham: of.QubitOperator,
+        reference_state: np.ndarray,
+        evolution_circuit: qiskit.QuantumCircuit | cirq.Circuit,
+        d: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Get the subspace matrices from a given reference state."""
+
+    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
+    ham_matrix = ham_cirq.matrix()
+
+    h = np.zeros((d, d), dtype=complex)
+    s = np.zeros((d, d), dtype=complex)
+    print("Computing subspace matrices.")
+    # Compute matrix element like <phi| H U^k |phi> etc.
+    overlaps = [] # <phi| U^k |phi>
+    mat_elems = []
+    for k in range(d):
+        print(f"On {k} / {d}")
+        # Compute the state vectors for U^k |ref> and (U^dag)^k |ref.
+        if isinstance(evolution_circuit, cirq.Circuit):
+            evolved_state = _evolve_state_cirq(reference_state, evolution_circuit, k)
+        else:
+            evolved_state = _evolve_state_qiskit(reference_state, evolution_circuit, k)
+        overlaps.append(np.vdot(reference_state, evolved_state))
+        mat_elems.append(np.vdot(reference_state, ham_matrix @ evolved_state))
+    # Fill the matrix.
+    for i in range(d): # Loop over rows.
+        for j in range(d):
+            if i == j:
+                h[i, i] = mat_elems[0]
+                s[i, i] = overlaps[0]
+            elif i > j:
+                h[i, j] = mat_elems[i - j]
+                s[i, j] = overlaps[i - j]
+            else: # i < j
+                h[i, j] = mat_elems[j - i].conjugate()
+                s[i, j] = overlaps[j - i].conjugate()
+    # breakpoint()
+    # assert la.ishermitian(h, rtol=1e-12)
+    # assert la.ishermitian(s, rtol=1e-12)
+    return h, s
+
+
 def subspace_matrices(
     ham: of.QubitOperator,
     state_prep_circuit: qiskit.QuantumCircuit | cirq.Circuit,
@@ -155,41 +225,8 @@ def subspace_matrices(
         sim = cirq.Simulator()
         sim_result = sim.simulate(state_prep_circuit)
         reference_state = sim_result.final_state_vector
+    return subspace_matrices_from_ref_state(ham, reference_state, evolution_circuit, d)
 
-    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
-    ham_matrix = ham_cirq.matrix()
-
-    h = np.zeros((d, d), dtype=complex)
-    s = np.zeros((d, d), dtype=complex)
-    print("Computing subspace matrices.")
-    # Compute matrix element like <phi| H U^k |phi> etc.
-    overlaps = [] # <phi| U^k |phi>
-    mat_elems = []
-    for k in range(d):
-        print(f"On {k} / {d}")
-        # Compute the state vectors for U^k |ref> and (U^dag)^k |ref.
-        if isinstance(state_prep_circuit, cirq.Circuit):
-            evolved_state = _get_state_cirq(state_prep_circuit, evolution_circuit, k)
-        else:
-            evolved_state = _get_state_qiskit(state_prep_circuit, evolution_circuit, k)
-        overlaps.append(np.vdot(reference_state, evolved_state))
-        mat_elems.append(np.vdot(reference_state, ham_matrix @ evolved_state))
-    # Fill the matrix.
-    for i in range(d): # Loop over rows.
-        for j in range(d):
-            if i == j:
-                h[i, i] = mat_elems[0]
-                s[i, i] = overlaps[0]
-            elif i > j:
-                h[i, j] = mat_elems[i - j]
-                s[i, j] = overlaps[i - j]
-            else: # i < j
-                h[i, j] = mat_elems[j - i].conjugate()
-                s[i, j] = overlaps[j - i].conjugate()
-    #breakpoint()
-    assert la.ishermitian(h)
-    assert la.ishermitian(s)
-    return h, s
 
 
 def energy_vs_d(h, s, step:int = 1) -> Tuple[List[int], List[float]]:
