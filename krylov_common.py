@@ -28,6 +28,7 @@ def load_hubbard_hamiltonian() -> of.QubitOperator:
 
     ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
+    return ham
 
 
 def hf_ref_circuit(nqubits: int, noccupied: int) -> cirq.Circuit:
