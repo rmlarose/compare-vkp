@@ -12,6 +12,7 @@ def group_qubits(group: List[cirq.PauliString]) -> Set[cirq.Qid]:
         qs |= set(ps.qubits)
     return qs
 
+
 def diagonal_pstring_exponential_circuit(pstring: cirq.PauliString, theta: float) -> cirq.Circuit:
     """Implements exp(-i theta c P), where theta is a real number and P a diagonal Pauli 
     string (with coefficient c). See the Paulihedral paper https://arxiv.org/abs/2109.03371."""

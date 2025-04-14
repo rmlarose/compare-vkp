@@ -158,7 +158,7 @@ class TestUnitaries(unittest.TestCase):
         self.assertTrue(np.allclose(target_unitary, generated_unitary, rtol=1e-4, atol=1e-6))
 
     def test_xx_zz(self):
-        """Test that evolution uder the Hamiltonian XX + ZZ gives the right unitary"""
+        """Test that evolution under the Hamiltonian XX + ZZ gives the right unitary"""
 
         qs = cirq.LineQubit.range(2)
         ps1 = 1.0 * cirq.X(qs[0]) * cirq.X(qs[1])
@@ -178,7 +178,6 @@ class TestUnitaries(unittest.TestCase):
         ps1 = 1.0 * cirq.Y(qs[0])
         ps2 = 1.0 * cirq.Z(qs[1])
         dt = 1e-2
-        # TODO the diagonalizer code make a circuit that maps ZI -> -YI. We need to account for signs.
         generated_circuit = trotter_circuit.commuting_group_exponential_circuit([ps1, ps2], dt, qs=qs)
         generated_unitary = generated_circuit.unitary()
         ham = ps1 + ps2
