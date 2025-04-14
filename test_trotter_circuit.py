@@ -40,6 +40,18 @@ class TestDiagonalStrings(unittest.TestCase):
         target_circuit.append(cirq.CNOT(qs[1], qs[0]))
         self.assertEqual(generated_circuit, target_circuit)
 
+    def test_zziz(self):
+        """Test ZZIZ."""
+
+        qs = cirq.LineQubit.range(4)
+        ps = -0.5 * cirq.Z(qs[0]) * cirq.Z(qs[1]) * cirq.Z(qs[3])
+        theta = 0.3
+        generated_circuit = trotter_circuit.diagonal_pstring_exponential_circuit(ps, theta)
+        target_unitary = la.expm(complex(0.0, -1.0) * theta * ps.matrix())
+        # norm_distance = la.norm(target_unitary - generated_circuit.unitary())
+        self.assertTrue(np.allclose(generated_circuit.unitary(), target_unitary))
+
+
 class TestNonDiagonalStrings(unittest.TestCase):
     """Test behavior when we pass in non-diagonal strings (requiring diagonalization circuits)."""
 
@@ -89,6 +101,7 @@ class TestNonDiagonalStrings(unittest.TestCase):
         target_circuit.append(cirq.H(qs[0]))
         target_circuit.append(cirq.H(qs[2]))
         self.assertTrue(cirq.approx_eq(generated_circuit.unitary(), target_circuit.unitary()))
+
 
 class TestGroupingCircuits(unittest.TestCase):
     """Test behavior when we pass in multiple strings, and they are storted 
