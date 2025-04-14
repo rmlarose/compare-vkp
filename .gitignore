@@ -167,3 +167,5 @@ cython_debug/
 *.pkl
 
 *.pdf
+
+*.hdf5
