@@ -51,11 +51,10 @@ def main():
         maxiter=10_000
     )
     # Get the expectation of the original Hamiltonian.
-    breakpoint()
     energies = np.zeros(2, dtype=complex)
     norm0 = np.vdot(eigenvectors[:, 0], eigenvectors[:, 0])
     energies[0] = np.vdot(eigenvectors[:, 0], ham_sparse @ eigenvectors[:, 0]) / norm0
-    exc_idx = 1
+    exc_idx = 2
     norm1 = np.vdot(eigenvectors[:, exc_idx], eigenvectors[:, exc_idx])
     energies[1] = np.vdot(eigenvectors[:, exc_idx], ham_sparse @ eigenvectors[:, exc_idx]) / norm1
     ref_norm = np.vdot(ref_state, ref_state)

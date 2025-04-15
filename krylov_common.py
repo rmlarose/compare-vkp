@@ -26,7 +26,7 @@ def load_water_hamiltonian() -> of.QubitOperator:
 def load_hubbard_hamiltonian() -> of.QubitOperator:
     """Load a 2D Fermi-Hubbard Hamiltonian."""
 
-    ham_fermi = of.hamiltonians.fermi_hubbard(3, 3, 1.0, 2.0, spinless=True)
+    ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
     return ham
 
@@ -144,7 +144,8 @@ def _evolve_state_qiskit(
     """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
 
     # TODO This function needs to set the initial state of the qubits.
-    total_circuit = qiskit.QuantumCircuit()
+    total_circuit = qiskit.QuantumCircuit(4)
+    total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
     return qiskit.quantum_info.Statevector(total_circuit).data

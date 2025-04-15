@@ -50,11 +50,11 @@ def main():
             h_d = h[:d, :d]
             s_d = s[:d, :d]
             # Project onto the thresholded subspace.
-            new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=1e-7)
+            new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=eps)
             evals, evecs = la.eigh(new_h, new_s)
-            results.append((d, eps, np.min(evals)))
+            results.append((d, eps, np.min(evals), new_h.shape[0]))
     # Output to HDF5 file.
-    df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy"])
+    df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
     df.index.name = "i"
     df.to_hdf(args.output_file, key="eigenvalues", index=False)
     df.to_csv("eigenvalues.csv")
