@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.linalg as la
 import cirq
+import qsimcirq
 import openfermion as of
 import qiskit
 from qiskit.circuit.library import PauliEvolutionGate
@@ -133,8 +134,9 @@ def _evolve_state_cirq(reference_state: np.ndarray, evolution_circuit: cirq.Circ
         total_circuit = cirq.Circuit()
         for _ in range(d):
             total_circuit += evolution_circuit
-        sim = cirq.Simulator()
-        sim_result = sim.simulate(total_circuit, initial_state=reference_state)
+        # sim = cirq.Simulator()
+        sim = qsimcirq.QSimSimulator()
+        sim_result = sim.simulate(total_circuit, initial_state=reference_state.astype(np.complex64))
         return sim_result.final_state_vector
 
 
@@ -152,10 +154,10 @@ def _evolve_state_qiskit(
 
 
 def subspace_matrices_from_ref_state(
-        ham: of.QubitOperator,
-        reference_state: np.ndarray,
-        evolution_circuit: qiskit.QuantumCircuit | cirq.Circuit,
-        d: int
+    ham: of.QubitOperator,
+    reference_state: np.ndarray,
+    evolution_circuit: qiskit.QuantumCircuit | cirq.Circuit,
+    d: int
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Get the subspace matrices from a given reference state."""
 
