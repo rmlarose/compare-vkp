@@ -45,6 +45,7 @@ def to_groups_of(groups: List[List[cirq.PauliString]]) -> List[of.QubitOperator]
 
 
 def cirq_circuit_to_qiskit(cirq_circuit: cirq.Circuit) -> qiskit.QuantumCircuit:
-    """Use mitiq's interface to convert a circuit from cirq to qiskit."""
+    """Convert from a cirq circuit to a qiskit circuit by way of QASM."""
 
-    return mitiq.interface.mitiq_qiskit.conversions.to_qiskit(cirq_circuit)
+    qasm_str = cirq_circuit.to_qasm()
+    return qiskit.QuantumCircuit.from_qasm_str(qasm_str)
