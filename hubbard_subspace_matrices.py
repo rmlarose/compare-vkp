@@ -71,19 +71,22 @@ def main():
     steps = args.steps
     dt = tau / float(steps)
     # BEGIN DEBUG CODE trying qiskit+PauliHedral
-    ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
-    single_step_ckt = qiskit.circuit.library.PauliEvolutionGate(ham_qiskit, time=dt)
-    evolution_ckt = qiskit.QuantumCircuit(nq)
-    for _ in range(steps):
-        evolution_ckt.compose(single_step_ckt, inplace=True)
+    # ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
+    # single_step_ckt = qiskit.circuit.library.PauliEvolutionGate(ham_qiskit, time=dt)
+    # evolution_ckt = qiskit.QuantumCircuit(nq)
+    # for _ in range(steps):
+    #     evolution_ckt.compose(single_step_ckt, inplace=True)
     # END DEBUG CODE
     # BEGIN OLD CODE
-    # groups = get_si_sets(ham_paulisum, k=1)
-    # with open("hubbard_groups.pkl", "wb") as f:
-    #     pickle.dump(groups, f)
-    # evolution_ckt = trotter_multistep_from_groups(
-    #     groups, qs, tau, steps
-    # )
+    groups = get_si_sets(ham_paulisum, k=1)
+    with open("hubbard_groups.pkl", "wb") as f:
+        pickle.dump(groups, f)
+    evolution_ckt = trotter_multistep_from_groups(
+        groups, qs, tau, steps
+    )
+    ev_ckt_qasm = evolution_ckt.to_qasm()
+    ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
+    # convert to qisit.
     # BEGIN OLD CODE
     # Convert circuits to QASM.
     #prep_ckt_qasm = cirq.qasm(state_prep_ckt)
@@ -95,12 +98,12 @@ def main():
     ground_state = f_in["eigenvectors"][:, 0]
     n_occ = 3
     b = [True] * n_occ + [False] * (nq - n_occ)
-    ref_state = perturb_state_with_cb_state(ground_state, b, 1e-4)
+    ref_state = perturb_state_with_cb_state(ground_state, b, 1e-1)
     print("distance =", la.norm(ground_state - ref_state))
 
     # Compute the subspace matrices.
     d_max = args.d
-    h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, evolution_ckt, d_max)
+    h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     # Write to file.
     f = h5py.File(args.output_file, "w")
     f.create_dataset("tau", data=tau)
