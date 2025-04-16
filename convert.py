@@ -5,8 +5,9 @@ from typing import List
 import cirq
 import numpy as np
 import openfermion as of
+import qiskit
 from qiskit.quantum_info import SparsePauliOp
-
+import mitiq
 
 def cirq_pauli_sum_to_qiskit_pauli_op(pauli_sum: cirq.PauliSum) -> SparsePauliOp:
     """Returns a qiskit.SparsePauliOp representation of the cirq.PauliSum."""
@@ -41,3 +42,9 @@ def to_groups_of(groups: List[List[cirq.PauliString]]) -> List[of.QubitOperator]
         groups_of.append(group_of)
 
     return groups_of
+
+
+def cirq_circuit_to_qiskit(cirq_circuit: cirq.Circuit) -> qiskit.QuantumCircuit:
+    """Use mitiq's interface to convert a circuit from cirq to qiskit."""
+
+    return mitiq.interface.mitiq_qiskit.conversions.to_qiskit(cirq_circuit)
