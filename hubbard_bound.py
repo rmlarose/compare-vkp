@@ -55,6 +55,7 @@ def chi_for_groups(
     Returns:
     Upper bound on chi."""
 
+    # TODO try using openfermion objects instead of cirq, due to the dict error.
     # Turn each group of strings in to a PauliSum.
     psums = [sum(group) for group in groups]
     # Then evaluate sum_gamma1 ||[\sum_gamma2 H_gamma2, H_gamma1]||
