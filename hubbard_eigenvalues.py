@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="HDF5 file with subsapce matrices.")
     parser.add_argument("output_file", type=str, help="HDF5 file for output.")
+    parser.add_argument("eps", type=float, help="Eigenvalue threshold.")
     args = parser.parse_args()
 
     # Load subspace matrices from "hubbard_subspace_matrices.h5"
@@ -45,14 +46,13 @@ def main():
     # Get ground state energies for various subspace dimensions and thresholds.
     results: List[Tuple[int, float, float]] = []
     for d in range(3, h.shape[0]+1):
-        for eps in np.logspace(-12, -5, num=4):
-            # Get the top d * d blocks of h and s.
-            h_d = h[:d, :d]
-            s_d = s[:d, :d]
-            # Project onto the thresholded subspace.
-            new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=eps)
-            evals, evecs = la.eigh(new_h, new_s)
-            results.append((d, eps, np.min(evals), new_h.shape[0]))
+        # Get the top d * d blocks of h and s.
+        h_d = h[:d, :d]
+        s_d = s[:d, :d]
+        # Project onto the thresholded subspace.
+        new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=args.eps)
+        evals, evecs = la.eigh(new_h, new_s)
+        results.append((d, args.eps, np.min(evals), new_h.shape[0]))
     # Output to HDF5 file.
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
     df.index.name = "i"
