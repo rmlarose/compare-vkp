@@ -1,5 +1,5 @@
+from typing import List, Tuple
 import argparse
-from typing import List
 from math import sqrt
 import pickle
 import h5py
@@ -19,7 +19,9 @@ def krylov_energy_bound(
     chi: float,
     zeta: float,
     gamma0_sq: float,
-    delta: float
+    delta: float,
+    eps: float,
+    s_dist: float
 ) -> float:
     """Error bound from Kirby's thm. See Eq. 50.
 
@@ -28,37 +30,20 @@ def krylov_energy_bound(
     norm_h - Norm of Hamiltonian matrix (in full basis, not subspace).
     chi - chi from Kirby's equation.
     zeta - zeta from Kirby's equation.
-    gamma0_sq - |<reference | ground state >|^2.
+    gamma0_sq - |<reference | ground state>|^2.
     delta - energy gap of the Hamiltonian.
 
     Returns:
     upper bound on error in ground state energy."""
 
     delta_p = delta - chi / gamma0_sq
-    return chi / gamma0_sq + (6 * norm_h) / gamma0_sq * (
-        2 * chi / delta_p + zeta + 8.0 * (1 + (pi * delta_p) / (4 * norm_h)) ** (-2.0 * d)
-    )
-
-
-def chi_for_groups(
-    d: int,
-    r: int,
-    tau: float,
-    h_norm: float,
-    comm_norms: float
-) -> float:
-    """Get a bound on chi.
-    
-    Arguments:
-    d - Subspace dimension.
-    r - number of trotter steps used in U.
-    tau - total evolution time for U.
-    comm_norms - sum of commutator norms from Prop. 9 of ToTECS.
-
-    Returns:
-    Upper bound on chi."""
-
-    return 2 * h_norm * (d ** 2 * tau ** 2) / (sqrt(2.0) * r) * comm_norms
+    gamma0_sq_p = gamma0_sq - 2.0 * eps - 2 * s_dist
+    t1 = 2 * chi / delta_p
+    t2 = zeta
+    t3 = 8.0 * (1 + (pi * delta_p) / (4 * norm_h)) ** (-2.0 * d)
+    p1 = chi / gamma0_sq_p
+    p2 = (6 * norm_h) / gamma0_sq_p
+    return p1 + p2 * (t1 + t2 + t3)
 
 
 def first_order_comm_norm(
@@ -84,7 +69,31 @@ def first_order_comm_norm(
     return comm_norms
 
 
+def s_dist_bound(d: int, tau: float, r: int, comm_norm: float) -> float:
+    """Upper bound on ||S-S'|| from Trotter error.
+    
+    Arguments:
+    d - subspace dimension.
+    tau - evolution time
+    r - number of time steps.
+    comm_norm - sum of commutator norms.
+    
+    Returns:
+    upper bound on ||S-S'||."""
+
+    return d ** 2 * tau ** 2 / (sqrt(2.0) * r) * comm_norm
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("exact_file", type=str, help="File with FCI calculation.")
+    parser.add_argument("subspace_file", type=str, help="File with subspace matrix calculation.")
+    parser.add_argument("eigenvalue_file", type=str, help="File with eigenvalue calculations.")
+    parser.add_argument("output_file", type=str, help="File for putting out bound.")
+    args = parser.parse_args()
+
+    print("Computing energy bound.")
+
     # Load Hamiltonian.
     ham: of.QubitOperator = load_hubbard_hamiltonian()
     ham_cirq = of.qubit_operator_to_pauli_sum(ham)
@@ -92,31 +101,43 @@ def main():
     norm_h = norm(of.linalg.qubit_operator_sparse(ham), ord=2)
 
     # Get data from FCI calculation.
-    exact_file = h5py.File("hubbard_exact.h5", "r")
+    exact_file = h5py.File(args.exact_file, "r")
     ground_state = exact_file["eigenvectors"][:, 0]
-    ref_state = exact_file["ref_state"][:]
-    #gamma0_sq = abs(np.vdot(ref_state, ground_state)) ** 2
-    gamma0_sq = (1.0 - 1e-2) ** 2
-    print(f"gamma0^2 = {gamma0_sq}")
     delta = abs(exact_file["energies"][1] - exact_file["energies"][0])
-    print(f"Delta = {delta}")
+    exact_file.close()
 
-    # Compute bound.
-    d = 16
-    r = 100
-    tau = 0.1
-    eps = 1e-12
+    # Get data from subspace matrix calculation.
+    subspace_file = h5py.File(args.subspace_file, "r")
+    ref_state = subspace_file["ref_state"][:]
+    tau = subspace_file["tau"][()]
+    r = subspace_file["steps"][()]
+    d_max = np.array(subspace_file["h"]).shape[0]
+    gamma0_sq = abs(np.vdot(ref_state, ground_state)) ** 2
+    subspace_file.close()
+
+    # Get data from eigenvalue calculation file.
+    ev_file = h5py.File(args.eigenvalue_file, "r")
+    eps = ev_file["eps"][()]
+    ev_file.close()
+
+    # Compute bound at different values of d.
     groups = get_si_sets(ham_cirq, nq)
     groups_of = to_groups_of(groups)
     comm_norm = first_order_comm_norm(groups_of, nq)
-    s_dist = d ** 2 * tau ** 2 / (2.0 * r) * comm_norm # Bound on ||S - S'||.
-    print(f"||S-S'|| <= {s_dist:.4f}")
-    zeta = 2 * d * (eps + s_dist)
-    print(f"zeta = {zeta}")
-    chi = chi_for_groups(d, r, tau, norm_h, comm_norm)
-    print(f"chi = {chi}")
-    bound = krylov_energy_bound(d, norm_h, chi, zeta, gamma0_sq, delta)
-    print(f"bound = {bound}")
+    results: List[Tuple[int, float]] = []
+    for d in range(d_max):
+        s_dist = s_dist_bound(d, tau, r, comm_norm)
+        print(f"s_dist={s_dist}")
+        zeta = 2 * d * (eps + s_dist)
+        chi = 2 * norm_h * s_dist
+        bound = krylov_energy_bound(d, norm_h, chi, zeta, gamma0_sq, delta, eps, s_dist)
+        results.append((d, bound))
+        print(f"d={d}, bound={bound}")
+
+    # Output to file.
+    df = pd.DataFrame.from_records(results, columns=["d", "bound"])
+    df.set_index("d", inplace=True)
+    df.to_hdf(args.output_file, key="bound")
 
 if __name__ == "__main__":
     main()

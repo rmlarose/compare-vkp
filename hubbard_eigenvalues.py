@@ -53,6 +53,7 @@ def main():
         new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=args.eps)
         evals, evecs = la.eigh(new_h, new_s)
         results.append((d, args.eps, np.min(evals), new_h.shape[0]))
+    print("Final result:", results[-1])
     # Output to HDF5 file.
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
     df.index.name = "i"
@@ -61,6 +62,7 @@ def main():
     f_out = h5py.File(args.output_file, "a")
     f_out.create_dataset("tau", data=tau_input)
     f_out.create_dataset("steps", data=steps_input)
+    f_out.create_dataset("eps", data=args.eps)
 
 if __name__ == "__main__":
     main()

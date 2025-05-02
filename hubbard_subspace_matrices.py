@@ -70,14 +70,6 @@ def main():
     tau = args.tau
     steps = args.steps
     dt = tau / float(steps)
-    # BEGIN DEBUG CODE trying qiskit+PauliHedral
-    # ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
-    # single_step_ckt = qiskit.circuit.library.PauliEvolutionGate(ham_qiskit, time=dt)
-    # evolution_ckt = qiskit.QuantumCircuit(nq)
-    # for _ in range(steps):
-    #     evolution_ckt.compose(single_step_ckt, inplace=True)
-    # END DEBUG CODE
-    # BEGIN OLD CODE
     groups = get_si_sets(ham_paulisum, k=1)
     with open("hubbard_groups.pkl", "wb") as f:
         pickle.dump(groups, f)
@@ -86,20 +78,16 @@ def main():
     )
     ev_ckt_qasm = evolution_ckt.to_qasm()
     ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
-    # convert to qisit.
-    # BEGIN OLD CODE
-    # Convert circuits to QASM.
-    #prep_ckt_qasm = cirq.qasm(state_prep_ckt)
-    #evolution_ckt_qasm = cirq.qasm(evolution_ckt)
 
     # For debug purposes: Get the exact ground state from the hubbard_exact.h5 file,
     # and perturb it with a computational basis state.
     f_in = h5py.File("hubbard_exact.h5", "r")
     ground_state = f_in["eigenvectors"][:, 0]
-    n_occ = 3
+    n_occ = round(f_in["reference_number_expectation"][()].real)
+    f_in.close()
+    print(f"{n_occ} occupied states in reference.")
     b = [True] * n_occ + [False] * (nq - n_occ)
     ref_state = perturb_state_with_cb_state(ground_state, b, 1e-1)
-    print("distance =", la.norm(ground_state - ref_state))
 
     # Compute the subspace matrices.
     d_max = args.d
@@ -110,10 +98,11 @@ def main():
     f.create_dataset("steps", data=steps)
     # f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
     # f.create_dataset("evolution_circuit_qasm", data=evolution_ckt_qasm)
-    # f.create_dataset("groups", data=str(groups))
+    f.create_dataset("groups", data=str(groups))
     f.create_dataset("d_max", data=d_max)
     f.create_dataset("h", data=h)
     f.create_dataset("s", data=s)
+    f.create_dataset("ref_state", data=ref_state)
     f.close()
 
 if __name__ == "__main__":
