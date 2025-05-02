@@ -124,20 +124,22 @@ def main():
     groups = get_si_sets(ham_cirq, nq)
     groups_of = to_groups_of(groups)
     comm_norm = first_order_comm_norm(groups_of, nq)
-    results: List[Tuple[int, float]] = []
+    results: List[Tuple[int, float, float]] = []
     for d in range(d_max):
         s_dist = s_dist_bound(d, tau, r, comm_norm)
-        print(f"s_dist={s_dist}")
         zeta = 2 * d * (eps + s_dist)
         chi = 2 * norm_h * s_dist
         bound = krylov_energy_bound(d, norm_h, chi, zeta, gamma0_sq, delta, eps, s_dist)
-        results.append((d, bound))
-        print(f"d={d}, bound={bound}")
+        results.append((d, s_dist, bound))
 
     # Output to file.
-    df = pd.DataFrame.from_records(results, columns=["d", "bound"])
+    df = pd.DataFrame.from_records(results, columns=["d", "s_distance", "bound"])
     df.set_index("d", inplace=True)
     df.to_hdf(args.output_file, key="bound")
+    with h5py.File(args.output_file, "w") as f:
+        f.create_dataset("hamiltonian_norm", data=norm_h)
+        f.create_dataset("steps", data=r)
+        f.create_dataset("gamma0_sq", data=gamma0_sq)
 
 if __name__ == "__main__":
     main()
