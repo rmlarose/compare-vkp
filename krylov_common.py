@@ -27,7 +27,7 @@ def load_water_hamiltonian() -> of.QubitOperator:
 def load_hubbard_hamiltonian() -> of.QubitOperator:
     """Load a 2D Fermi-Hubbard Hamiltonian."""
 
-    ham_fermi = of.hamiltonians.fermi_hubbard(2, 2, 1.0, 2.0, spinless=True)
+    ham_fermi = of.hamiltonians.fermi_hubbard(3, 3, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
     return ham
 
@@ -141,12 +141,12 @@ def _evolve_state_cirq(reference_state: np.ndarray, evolution_circuit: cirq.Circ
 
 
 def _evolve_state_qiskit(
-        reference_state: np.ndarray, evolution_circuit: qiskit.QuantumCircuit, d: int
+        reference_state: np.ndarray, evolution_circuit: qiskit.QuantumCircuit, d: int, nq: int
 ) -> np.ndarray:
     """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
 
     # TODO This function needs to set the initial state of the qubits.
-    total_circuit = qiskit.QuantumCircuit(4)
+    total_circuit = qiskit.QuantumCircuit(nq)
     total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
@@ -161,6 +161,7 @@ def subspace_matrices_from_ref_state(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Get the subspace matrices from a given reference state."""
 
+    nq = of.utils.count_qubits(ham)
     ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
     ham_matrix = ham_cirq.matrix()
 
@@ -176,7 +177,7 @@ def subspace_matrices_from_ref_state(
         if isinstance(evolution_circuit, cirq.Circuit):
             evolved_state = _evolve_state_cirq(reference_state, evolution_circuit, k)
         else:
-            evolved_state = _evolve_state_qiskit(reference_state, evolution_circuit, k)
+            evolved_state = _evolve_state_qiskit(reference_state, evolution_circuit, k, nq)
         overlaps.append(np.vdot(reference_state, evolved_state))
         mat_elems.append(np.vdot(reference_state, ham_matrix @ evolved_state))
     # Fill the matrix.
