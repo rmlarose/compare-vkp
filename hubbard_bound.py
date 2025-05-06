@@ -133,13 +133,13 @@ def main():
         results.append((d, s_dist, bound))
 
     # Output to file.
-    df = pd.DataFrame.from_records(results, columns=["d", "s_distance", "bound"])
-    df.set_index("d", inplace=True)
-    df.to_hdf(args.output_file, key="bound")
     with h5py.File(args.output_file, "w") as f:
         f.create_dataset("hamiltonian_norm", data=norm_h)
         f.create_dataset("steps", data=r)
         f.create_dataset("gamma0_sq", data=gamma0_sq)
+    df = pd.DataFrame.from_records(results, columns=["d", "s_distance", "bound"])
+    df.set_index("d", inplace=True)
+    df.to_hdf(args.output_file, key="bound")
 
 if __name__ == "__main__":
     main()

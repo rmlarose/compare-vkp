@@ -1,8 +1,10 @@
 #!/bin/bash
 
+set -e
+
 tau=1e-2
 steps=1000
-d=25
+d=5
 eps=1e-12
 
 python hubbard_exact.py
