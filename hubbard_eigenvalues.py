@@ -59,6 +59,7 @@ def main():
     f_out.create_dataset("tau", data=tau_input)
     f_out.create_dataset("steps", data=steps_input)
     f_out.create_dataset("eps", data=args.eps)
+    f_out.close()
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
     df.index.name = "i"
     df.to_hdf(args.output_file, key="eigenvalues", index=False)
