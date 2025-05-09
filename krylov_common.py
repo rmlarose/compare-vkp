@@ -258,3 +258,23 @@ class RTESubspaceResult:
     s: np.ndarray
     ds: List[int]
     energies: List[float]
+
+
+def threshold_eigenvalues(h: np.ndarray, s: np.ndarray, eps: float) -> Tuple[np.ndarray, np.ndarray]:
+    """Remove all eigenvalues below a positive threshold eps.
+    See Epperly et al. sec. 1.2."""
+
+    # Build a matrix whose columns correspond to the positive eigenvectors of s.
+    evals, evecs = la.eigh(s)
+    positive_evals = []
+    positive_evecs = []
+    for i, ev in enumerate(evals):
+        assert abs(ev.imag) < 1e-7
+        if ev.real > eps:
+            positive_evals.append(ev.real)
+            positive_evecs.append(evecs[:, i])
+    pos_evec_mat = np.vstack(positive_evecs).T
+    # Project h and s into this subspace.
+    new_s =  pos_evec_mat.conj().T @ s @ pos_evec_mat
+    new_h = pos_evec_mat.conj().T @ h @ pos_evec_mat
+    return new_h, new_s
