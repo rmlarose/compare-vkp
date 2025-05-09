@@ -36,13 +36,24 @@ def krylov_energy_bound(
     Returns:
     upper bound on error in ground state energy."""
 
-    delta_p = delta - chi / gamma0_sq
     gamma0_sq_p = gamma0_sq - 2.0 * eps - 2 * s_dist
+    print(f"gamma0_sq_p={gamma0_sq_p}")
+    delta_p = delta - chi / gamma0_sq_p
+    print(f"delta_p={delta_p}")
+
+    if chi / gamma0_sq_p > delta_p / 2.0:
+        print("!!! chi / gamma0_sq_p > delta_p / 2")
+
     t1 = 2 * chi / delta_p
+    print(f"t1={t1}")
     t2 = zeta
+    print(f"t2={t2}")
     t3 = 8.0 * (1 + (pi * delta_p) / (4 * norm_h)) ** (-2.0 * d)
+    print(f"t3={t3}")
     p1 = chi / gamma0_sq_p
+    print(f"p1={p1}")
     p2 = (6 * norm_h) / gamma0_sq_p
+    print(f"p2={p2}")
     return p1 + p2 * (t1 + t2 + t3)
 
 
@@ -99,11 +110,13 @@ def main():
     ham_cirq = of.qubit_operator_to_pauli_sum(ham)
     nq = len(ham_cirq.qubits)
     norm_h = norm(of.linalg.qubit_operator_sparse(ham), ord=2)
+    print(f"norm_h={norm_h}")
 
     # Get data from FCI calculation.
     exact_file = h5py.File(args.exact_file, "r")
     ground_state = exact_file["eigenvectors"][:, 0]
     delta = abs(exact_file["energies"][1] - exact_file["energies"][0])
+    print(f"delta={delta}")
     exact_file.close()
 
     # Get data from subspace matrix calculation.
@@ -113,6 +126,7 @@ def main():
     r = subspace_file["steps"][()]
     d_max = np.array(subspace_file["h"]).shape[0]
     gamma0_sq = abs(np.vdot(ref_state, ground_state)) ** 2
+    print(f"gamma0_sq={gamma0_sq}")
     subspace_file.close()
 
     # Get data from eigenvalue calculation file.
@@ -124,12 +138,18 @@ def main():
     groups = get_si_sets(ham_cirq, nq)
     groups_of = to_groups_of(groups)
     comm_norm = first_order_comm_norm(groups_of, nq)
+    print(f"comm_norm={comm_norm}")
     results: List[Tuple[int, float, float]] = []
     for d in range(d_max):
+        print(f"d={d}")
         s_dist = s_dist_bound(d, tau, r, comm_norm)
+        print(f"s_dist={s_dist}")
         zeta = 2 * d * (eps + s_dist)
+        print(f"zeta={zeta}")
         chi = 2 * norm_h * s_dist
+        print(f"chi={chi}")
         bound = krylov_energy_bound(d, norm_h, chi, zeta, gamma0_sq, delta, eps, s_dist)
+        print(f"bound={bound}")
         results.append((d, s_dist, bound))
 
     # Output to file.
