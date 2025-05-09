@@ -169,3 +169,5 @@ cython_debug/
 *.pdf
 
 *.hdf5
+
+*.tar.gz
