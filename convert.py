@@ -3,6 +3,7 @@
 from typing import List
 
 import cirq
+from cirq.contrib.qasm_import import circuit_from_qasm
 import numpy as np
 import openfermion as of
 import qiskit
@@ -49,3 +50,10 @@ def cirq_circuit_to_qiskit(cirq_circuit: cirq.Circuit) -> qiskit.QuantumCircuit:
 
     qasm_str = cirq_circuit.to_qasm()
     return qiskit.QuantumCircuit.from_qasm_str(qasm_str)
+
+
+def qiskit_circuit_to_cirq(qiskit_circuit: qiskit.QuantumCircuit) -> cirq.Circuit:
+    """Convert a circuit from qiskit to cirq."""
+
+    qasm_str = qiskit.qasm2.dumps(qiskit_circuit)
+    return circuit_from_qasm(qasm_str)
