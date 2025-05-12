@@ -38,13 +38,12 @@ def main():
     ham_matrix = of.linalg.get_sparse_operator(ham)
     print("Reference energy:", np.vdot(ref_state, ham_matrix @ ref_state))
 
-    evals, evecs = eigsh(ham_matrix, k=4, which="SA")
-    ground_energy = np.min(evals)
-    ground_state = evecs[:, 0]
-    print(f"Ground state energy = {ground_energy}")
-
-    overlap = np.vdot(ref_state, ground_state)
-    print("|<ref|ground state>|^2=", abs(overlap)**2)
+    # evals, evecs = eigsh(ham_matrix, k=4, which="SA")
+    # ground_energy = np.min(evals)
+    # ground_state = evecs[:, 0]
+    # print(f"Ground state energy = {ground_energy}")
+    # overlap = np.vdot(ref_state, ground_state)
+    # print("|<ref|ground state>|^2=", abs(overlap)**2)
 
     # Get the Trotter circuit.
     tau = 1e-1
