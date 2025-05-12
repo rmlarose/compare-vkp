@@ -75,10 +75,16 @@ def main():
     min_ckt_qasm = cirq.qasm(min_ckt)
     theta_final = opt_result.x.reshape(nrounds, len(qs))
 
+    # Get the state of the optimized circuit for later reference.
+    sim = cirq.Simulator()
+    result = sim.simulate(min_ckt)
+    state_vector = result.final_state_vector
+
     f = h5py.File("xyz_vqe.hdf5", "w")
     f.create_dataset("parameters", data=theta_final)
     f.create_dataset("circuit_qasm", data=min_ckt_qasm)
     f.create_dataset("energy", data=opt_result.fun)
+    f.create_dataset("state", data=state_vector)
 
 if __name__ == "__main__":
     main()
