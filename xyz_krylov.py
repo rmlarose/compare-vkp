@@ -19,15 +19,22 @@ def main():
     # get a the reference state circuit.
     nq = of.utils.count_qubits(ham)
     qs = cirq.LineQubit.range(nq)
-    ref_ckt_qiskit = kc.cb_state_circuit_qiskit(nq, [False, False, False])
-    ref_ckt = convert.qiskit_circuit_to_cirq(ref_ckt_qiskit)
-    sim = cirq.Simulator()
-    result = sim.simulate(ref_ckt)
-    ref_state = result.final_state_vector
-    rand_state = np.random.rand(ref_state.size)
-    rand_state = rand_state / la.norm(rand_state)
-    ref_state = ref_state + 0.9 * rand_state
-    ref_state = ref_state / la.norm(ref_state)
+    use_vqe = True
+    if use_vqe:
+        # Load reference state from the VQE results file.
+        reference_file = h5py.File("xyz_vqe.hdf5", "r")
+        ref_state = np.array(reference_file["state"])
+    else:
+        # Use the exact ground state and perturb it by superposing with a random state.
+        ref_ckt_qiskit = kc.cb_state_circuit_qiskit(nq, [False, False, False])
+        ref_ckt = convert.qiskit_circuit_to_cirq(ref_ckt_qiskit)
+        sim = cirq.Simulator()
+        result = sim.simulate(ref_ckt)
+        ref_state = result.final_state_vector
+        rand_state = np.random.rand(ref_state.size)
+        rand_state = rand_state / la.norm(rand_state)
+        ref_state = ref_state + 0.9 * rand_state
+        ref_state = ref_state / la.norm(ref_state)
     ham_matrix = of.linalg.get_sparse_operator(ham)
     print("Reference energy:", np.vdot(ref_state, ham_matrix @ ref_state))
 
@@ -40,7 +47,6 @@ def main():
     print("|<ref|ground state>|^2=", abs(overlap)**2)
 
     # Get the Trotter circuit.
-    # TODO test paulihedral.
     tau = 1e-1
     steps = 100
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(ham)
@@ -68,7 +74,7 @@ def main():
     h, s = kc.subspace_matrices_from_ref_state(ham, ref_state, ev_ckt_qiskit, d_max)
 
     # Compute eigenvalues at different subspace sizes.
-    eps = 1e-7
+    eps = 1e-5
     results = []
     for d in range(3, d_max):
         h_d = h[:d, :d]
