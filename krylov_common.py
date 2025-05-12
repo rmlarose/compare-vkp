@@ -10,6 +10,34 @@ from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
 import convert
 
+def xyz_hamiltonian(l: int, h: float, j: np.ndarray) -> of.QubitOperator:
+    """Heisenberg XYZ Hamiltonian
+    H = -h sum_i sigma^z_i + j_x sigma^x_i sigma^x_{i+1} + ..."""
+
+    assert l > 0
+    assert j.size == 3
+
+    ham = of.QubitOperator()
+    for i in range(l):
+        ham += -h * of.QubitOperator(f"Z{i}")
+    for i in range(l):
+        if i != l-1:
+            ham += j[0] * of.QubitOperator(f"X{i} X{i+1}")
+            ham += j[1] * of.QubitOperator(f"Y{i} Y{i+1}")
+            ham += j[2] * of.QubitOperator(f"Z{i} Z{i+1}")
+    return ham
+
+
+def load_xyz_hamiltonian() -> of.QubitOperator:
+    """Load the Heisenberg Hamiltonian with set parameters."""
+
+    l = 3
+    hh = 1.0
+    j = np.array([0.1, 0.3, 0.1])
+    ham = xyz_hamiltonian(l, hh, j)
+    return ham
+
+
 def load_water_hamiltonian() -> of.QubitOperator:
     """Load the water molecule Hamiltonian from its pubchem description, then convert to QubitOperator."""
 
@@ -62,12 +90,25 @@ def neel_state_circuit(nqubits: int) -> cirq.Circuit:
     return ckt
 
 
-def neel_state_circuit_qiskit(nqubits: int) -> cirq.Circuit:
+def neel_state_circuit_qiskit(nqubits: int) -> qiskit.QuantumCircuit:
     """Circuit to build a Neel state |101010...> on a number of qubits."""
 
     ckt = qiskit.QuantumCircuit(nqubits)
     for i in range(nqubits):
         if i % 2 == 0:
+            ckt.x(i)
+        else:
+            ckt.id(i)
+    return ckt
+
+
+def cb_state_circuit_qiskit(nqubits: int, bits: List[bool]) -> qiskit.QuantumCircuit:
+    """Circuit that prepares the chosen computational basis state."""
+
+    assert len(bits) == nqubits
+    ckt = qiskit.QuantumCircuit(nqubits)
+    for i, b in enumerate(bits):
+        if b:
             ckt.x(i)
         else:
             ckt.id(i)
