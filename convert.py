@@ -55,5 +55,5 @@ def cirq_circuit_to_qiskit(cirq_circuit: cirq.Circuit) -> qiskit.QuantumCircuit:
 def qiskit_circuit_to_cirq(qiskit_circuit: qiskit.QuantumCircuit) -> cirq.Circuit:
     """Convert a circuit from qiskit to cirq."""
 
-    qasm_str = qiskit.qasm2.dumps(qiskit_circuit)
+    qasm_str = qiskit.qasm3.dumps(qiskit_circuit)
     return circuit_from_qasm(qasm_str)
