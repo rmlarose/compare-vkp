@@ -52,10 +52,10 @@ def load_water_hamiltonian() -> of.QubitOperator:
     return of.transforms.jordan_wigner(fermi_hamiltonian)
 
 
-def load_hubbard_hamiltonian() -> of.QubitOperator:
+def load_hubbard_hamiltonian(n: int = 4) -> of.QubitOperator:
     """Load a 2D Fermi-Hubbard Hamiltonian."""
 
-    ham_fermi = of.hamiltonians.fermi_hubbard(3, 3, 1.0, 2.0, spinless=True)
+    ham_fermi = of.hamiltonians.fermi_hubbard(n, n, 1.0, 2.0, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
     return ham
 

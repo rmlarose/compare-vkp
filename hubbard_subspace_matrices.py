@@ -47,14 +47,20 @@ def perturb_state_with_cb_state(ref_state: np.ndarray, cb_state: List[bool], rat
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("n", type=int, help="Length of square lattice.")
     parser.add_argument("tau", type=float, help="Evolution time for U.")
     parser.add_argument("steps", type=int, help="Number of steps for U.")
     parser.add_argument("d", type=int, help="Subspace dimension")
+    parser.add_argument(
+        "ratio",
+        type=float, help="Ratio of exact ground state to computational basis state in reference state vector."
+    )
+    parser.add_argument("exact_input_file", type=str, help="HDF5 file with ground state.")
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
 
     #hamiltonian = kc.load_water_hamiltonian()
-    hamiltonian: of.QubitOperator = kc.load_hubbard_hamiltonian()
+    hamiltonian: of.QubitOperator = kc.load_hubbard_hamiltonian(args.n)
     nq = of.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
 
@@ -64,41 +70,53 @@ def main():
     #state_prep_ckt = kc.neel_state_circuit_qiskit(nq)
 
     # Get the first-order Trotter circuit.
+    use_paulihedral = True
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
-    assert len(ham_paulisum.qubits) == nq
-    assert set(ham_paulisum.qubits).issubset(set(qs))
-    tau = args.tau
-    steps = args.steps
-    dt = tau / float(steps)
-    groups = get_si_sets(ham_paulisum, k=1)
-    with open("hubbard_groups.pkl", "wb") as f:
-        pickle.dump(groups, f)
-    evolution_ckt = trotter_multistep_from_groups(
-        groups, qs, tau, steps
-    )
-    ev_ckt_qasm = evolution_ckt.to_qasm()
-    ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
+    if use_paulihedral:
+        ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
+        dt = args.tau / float(args.steps)
+        ev_gate = qiskit.circuit.library.PauliEvolutionGate(ham_qiskit, time=dt)
+        ev_ckt_qiskit = qiskit.QuantumCircuit(nq)
+        for _ in range(args.steps):
+            ev_ckt_qiskit.append(ev_gate, range(nq))
+    else:
+        assert len(ham_paulisum.qubits) == nq
+        assert set(ham_paulisum.qubits).issubset(set(qs))
+        tau = args.tau
+        steps = args.steps
+        dt = tau / float(steps)
+        groups = get_si_sets(ham_paulisum, k=1)
+        with open("hubbard_groups.pkl", "wb") as f:
+            pickle.dump(groups, f)
+        evolution_ckt = trotter_multistep_from_groups(
+            groups, qs, tau, steps
+        )
+        ev_ckt_qasm = evolution_ckt.to_qasm()
+        ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
 
     # For debug purposes: Get the exact ground state from the hubbard_exact.h5 file,
     # and perturb it with a computational basis state.
-    f_in = h5py.File("hubbard_exact.h5", "r")
+    f_in = h5py.File("hubbard_exact.hdf5", "r")
     ground_state = f_in["eigenvectors"][:, 0]
     n_occ = round(f_in["reference_number_expectation"][()].real)
     f_in.close()
     print(f"{n_occ} occupied states in reference.")
     b = [True] * n_occ + [False] * (nq - n_occ)
-    ref_state = perturb_state_with_cb_state(ground_state, b, 1e-1)
+    assert 0.0 <= args.ratio <= 1.0
+    ref_state = perturb_state_with_cb_state(ground_state, b, args.ratio)
 
     # Compute the subspace matrices.
     d_max = args.d
     h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     # Write to file.
     f = h5py.File(args.output_file, "w")
-    f.create_dataset("tau", data=tau)
-    f.create_dataset("steps", data=steps)
+    f.create_dataset("n", data=args.n)
+    f.create_dataset("tau", data=args.tau)
+    f.create_dataset("steps", data=args.steps)
+    f.create_dataset("ratio", data=args.ratio)
     # f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
     # f.create_dataset("evolution_circuit_qasm", data=evolution_ckt_qasm)
-    f.create_dataset("groups", data=str(groups))
+    # f.create_dataset("groups", data=str(groups))
     f.create_dataset("d_max", data=d_max)
     f.create_dataset("h", data=h)
     f.create_dataset("s", data=s)

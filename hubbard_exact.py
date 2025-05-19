@@ -1,5 +1,6 @@
 """Get ground state energy, energy gap, and reference state overlap for the water molecule."""
 
+import argparse
 import numpy as np
 import scipy.linalg as la
 from scipy.sparse.linalg import eigsh
@@ -22,9 +23,13 @@ def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("n", type=int, help="Dimension of square lattice.")
+    parser.add_argument("output_file", type=str, help="HDF5 output file.")
+    args = parser.parse_args()
+
     # Build the Fermi-Hubbard Hamiltonian.
-    #ham: of.QubitOperator = load_water_hamiltonian()
-    ham: of.QubitOperator = load_hubbard_hamiltonian()
+    ham: of.QubitOperator = load_hubbard_hamiltonian(args.n)
     nq = of.count_qubits(ham)
     nterms = len(ham.terms)
     # Get a circuit and vector for the reference state.
@@ -69,8 +74,9 @@ def main():
     print(f"Number expectation = {number_expectation}")
     print(f"Reference state number expectation = {reference_number_expectation}")
     # Output to HDF5
-    f = h5py.File("hubbard_exact.h5", "w")
+    f = h5py.File(args.output_file, "w")
     nq_dset = f.create_dataset("nq", data=nq)
+    size_dataset = f.create_dataset("lattice_size", data=args.n)
     nterms_dset = f.create_dataset("nterms", data=nterms)
     ref_state_dset = f.create_dataset("ref_state", data=ref_state)
     energies_dset = f.create_dataset("energies", data=energies)
