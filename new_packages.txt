@@ -1,0 +1,20 @@
+name: compare
+channels:
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - python=3.12
+  - h5py
+  - scipy
+  - conda-forge::cirq
+  - conda-forge::qiskit
+  - conda-forge::openfermion
+  - conda-forge::qsimcirq
+  - tables
+  - ipykernel
+  - seaborn
+  - matplotlib
+  - pytest
+  - ply
+  - pathos
+prefix: /opt/homebrew/Caskroom/miniconda/base/envs/compare
