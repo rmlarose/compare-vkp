@@ -96,7 +96,7 @@ def main():
 
     # For debug purposes: Get the exact ground state from the hubbard_exact.h5 file,
     # and perturb it with a computational basis state.
-    f_in = h5py.File("hubbard_exact.hdf5", "r")
+    f_in = h5py.File(args.exact_input_file, "r")
     ground_state = f_in["eigenvectors"][:, 0]
     n_occ = round(f_in["reference_number_expectation"][()].real)
     f_in.close()
@@ -104,6 +104,9 @@ def main():
     b = [True] * n_occ + [False] * (nq - n_occ)
     assert 0.0 <= args.ratio <= 1.0
     ref_state = perturb_state_with_cb_state(ground_state, b, args.ratio)
+    qubit_map = dict(zip(qs, range(len(qs))))
+    ref_state_energy = ham_paulisum.expectation_from_state_vector(ref_state, qubit_map)
+    print(f"Reference energy = {ref_state_energy}")
 
     # Compute the subspace matrices.
     d_max = args.d
@@ -121,6 +124,7 @@ def main():
     f.create_dataset("h", data=h)
     f.create_dataset("s", data=s)
     f.create_dataset("ref_state", data=ref_state)
+    f.create_dataset("reference_energy", data=ref_state_energy)
     f.close()
 
 if __name__ == "__main__":
