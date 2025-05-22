@@ -52,6 +52,7 @@ def main():
         # Project onto the thresholded subspace.
         new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=args.eps)
         evals, evecs = la.eigh(new_h, new_s)
+        print(d, np.min(evals))
         results.append((d, args.eps, np.min(evals), new_h.shape[0]))
     print("Final result:", results[-1])
     # Output to HDF5 file.
