@@ -107,6 +107,7 @@ def main():
     qubit_map = dict(zip(qs, range(len(qs))))
     ref_state_energy = ham_paulisum.expectation_from_state_vector(ref_state, qubit_map)
     print(f"Reference energy = {ref_state_energy}")
+    del ground_state
 
     # Compute the subspace matrices.
     d_max = args.d
