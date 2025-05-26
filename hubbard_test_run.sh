@@ -2,7 +2,7 @@
 
 set -e
 
-n=2
+n=4
 tau=1e-1
 steps=300
 d=16
