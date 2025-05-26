@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import scipy.linalg as la
 import cirq
+from cirq.contrib.qasm_import import circuit_from_qasm
 import qiskit
 import openfermion as of
 from kcommute import get_si_sets
