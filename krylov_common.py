@@ -191,7 +191,8 @@ def _evolve_state_qiskit(
     total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
-    return qiskit.quantum_info.Statevector(total_circuit).data
+    sv = qiskit.quantum_info.Statevector(total_circuit)
+    return sv.data
 
 
 def subspace_matrices_from_ref_state(
