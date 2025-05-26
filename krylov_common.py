@@ -203,8 +203,9 @@ def subspace_matrices_from_ref_state(
     """Get the subspace matrices from a given reference state."""
 
     nq = of.utils.count_qubits(ham)
-    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
-    ham_matrix = ham_cirq.matrix()
+    # ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
+    # ham_matrix = ham_cirq.matrix()
+    ham_matrix = of.linalg.get_sparse_operator(ham)
 
     h = np.zeros((d, d), dtype=complex)
     s = np.zeros((d, d), dtype=complex)
