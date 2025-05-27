@@ -186,12 +186,13 @@ def _evolve_state_qiskit(
 ) -> np.ndarray:
     """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
 
-    # TODO This function needs to set the initial state of the qubits.
     total_circuit = qiskit.QuantumCircuit(nq)
     total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
     sv = qiskit.quantum_info.Statevector(total_circuit)
+    # sv = qiskit.quantum_info.Statevector(reference_state)
+    # sv = sv.evolve(total_circuit)
     return sv.data
 
 
