@@ -171,3 +171,5 @@ cython_debug/
 *.hdf5
 
 *.tar.gz
+
+*.qpy
