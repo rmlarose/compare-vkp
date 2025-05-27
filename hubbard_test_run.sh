@@ -2,10 +2,10 @@
 
 set -e
 
-n=2
+n=3
 tau=1e-1
 steps=300
-d=30
+d=15
 eps=1e-9
 ratio=1.0
 
