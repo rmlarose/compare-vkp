@@ -71,6 +71,7 @@ def main():
     #state_prep_ckt = kc.neel_state_circuit_qiskit(nq)
 
     # Get the first-order Trotter circuit.
+    # TODO try from qiskit.qasm3 import dumps
     use_paulihedral = True
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     if use_paulihedral:
