@@ -5,8 +5,9 @@ import h5py
 import numpy as np
 import scipy.linalg as la
 import cirq
-import qiskit
 import openfermion as of
+import qiskit
+from qiskit import qpy
 from kcommute import get_si_sets
 from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
@@ -93,6 +94,8 @@ def main():
         )
         ev_ckt_qasm = evolution_ckt.to_qasm()
         ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
+    with open("hubbard_trotter_ckt.qpy", "wb") as f:
+        qpy.dump(ev_ckt_qiskit, f)
 
     # For debug purposes: Get the exact ground state from the hubbard_exact.h5 file,
     # and perturb it with a computational basis state.
