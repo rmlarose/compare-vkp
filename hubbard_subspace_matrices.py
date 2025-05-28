@@ -5,6 +5,8 @@ import h5py
 import numpy as np
 import scipy.linalg as la
 import cirq
+from cirq.contrib.qasm_import import circuit_from_qasm
+import qiskit
 import openfermion as of
 import qiskit
 from qiskit import qpy
@@ -71,6 +73,7 @@ def main():
     #state_prep_ckt = kc.neel_state_circuit_qiskit(nq)
 
     # Get the first-order Trotter circuit.
+    # TODO try from qiskit.qasm3 import dumps
     use_paulihedral = True
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     if use_paulihedral:
@@ -110,6 +113,7 @@ def main():
     qubit_map = dict(zip(qs, range(len(qs))))
     ref_state_energy = ham_paulisum.expectation_from_state_vector(ref_state, qubit_map)
     print(f"Reference energy = {ref_state_energy}")
+    del ground_state
 
     # Compute the subspace matrices.
     d_max = args.d

@@ -8,6 +8,7 @@ import openfermion as of
 import qiskit
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
+from qiskit_aer import AerSimulator
 import convert
 
 def xyz_hamiltonian(l: int, h: float, j: np.ndarray) -> of.QubitOperator:
@@ -186,12 +187,16 @@ def _evolve_state_qiskit(
 ) -> np.ndarray:
     """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
 
-    # TODO This function needs to set the initial state of the qubits.
     total_circuit = qiskit.QuantumCircuit(nq)
-    total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
+    total_circuit.initialize(reference_state)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
-    return qiskit.quantum_info.Statevector(total_circuit).data
+    sim = AerSimulator(method="statevector")
+    transpiled_circuit = qiskit.transpile(total_circuit, sim)
+    transpiled_circuit.save_state()
+    result = sim.run(transpiled_circuit).result()
+    sv = result.get_statevector()
+    return sv.data
 
 
 def subspace_matrices_from_ref_state(
@@ -203,8 +208,9 @@ def subspace_matrices_from_ref_state(
     """Get the subspace matrices from a given reference state."""
 
     nq = of.utils.count_qubits(ham)
-    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
-    ham_matrix = ham_cirq.matrix()
+    # ham_cirq = of.transforms.qubit_operator_to_pauli_sum(ham)
+    # ham_matrix = ham_cirq.matrix()
+    ham_matrix = of.linalg.get_sparse_operator(ham)
 
     h = np.zeros((d, d), dtype=complex)
     s = np.zeros((d, d), dtype=complex)
