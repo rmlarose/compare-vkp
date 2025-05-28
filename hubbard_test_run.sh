@@ -2,12 +2,12 @@
 
 set -e
 
-n=2
+n=4
 tau=1e-1
 steps=300
 d=16
 eps=1e-9
-ratio=0.3
+ratio=0.1
 
 python hubbard_exact.py $n hubbard_exact.hdf5
 python hubbard_subspace_matrices.py $n $tau $steps $d $ratio hubbard_exact.hdf5 hubbard_subspace.hdf5

@@ -8,6 +8,7 @@ import openfermion as of
 import qiskit
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
+from qiskit_aer import AerSimulator
 import convert
 
 def xyz_hamiltonian(l: int, h: float, j: np.ndarray) -> of.QubitOperator:
@@ -187,12 +188,14 @@ def _evolve_state_qiskit(
     """Get the state vector corresponding to (U_evolution)^d U_prep |0>."""
 
     total_circuit = qiskit.QuantumCircuit(nq)
-    total_circuit.append(qiskit.circuit.library.Initialize(reference_state), total_circuit.qubits)
+    total_circuit.initialize(reference_state)
     for _ in range(d):
         total_circuit = total_circuit.compose(evolution_circuit)
-    sv = qiskit.quantum_info.Statevector(total_circuit)
-    # sv = qiskit.quantum_info.Statevector(reference_state)
-    # sv = sv.evolve(total_circuit)
+    sim = AerSimulator(method="statevector")
+    transpiled_circuit = qiskit.transpile(total_circuit, sim)
+    transpiled_circuit.save_state()
+    result = sim.run(transpiled_circuit).result()
+    sv = result.get_statevector()
     return sv.data
 
 
