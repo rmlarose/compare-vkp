@@ -174,3 +174,5 @@ cython_debug/
 
 *.qpy
 .DS_Store
+
+*.qasm
