@@ -1,4 +1,6 @@
 from typing import List
+import argparse
+import json
 import h5py
 import numpy as np
 from scipy.linalg import norm
@@ -56,12 +58,18 @@ def mpo_mps_exepctation(mpo: MatrixProductOperator, mps: MatrixProductState) -> 
 
 
 def main():
-    l = 2 # Number of lattice sites on each side.
-    n_occ = 2 # Number of occupied orbitals.
-    t = 1.0 # Hopping rate
-    u = 2.0 # Interaction strength.
-    alpha = 3.0 # Factor to regulat occupation number.
-    max_bond = 50
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input_filename", type=str, help="JSON file with simulation configuration")
+    parser.add_argument("output_filename", type=str, help="HDF5 ouptut file for ground state.")
+    args = parser.parse_args()
+
+    input_dict = json.load(args.input_filename)
+    l = input_dict["l"] # Number of lattice sites on each side.
+    n_occ = input_dict["n_occ"] # Number of occupied orbitals.
+    t = input_dict["t"] # Hopping rate
+    u = input_dict["u"] # Interaction strength.
+    alpha = input_dict["alpha"] # Factor to regulat occupation number.
+    max_bond = input_dict["max_bond"] # Max bond for all calculations.
 
     # Load the fermionic Hamiltonian. 
     ham_fermi = of.hamiltonians.fermi_hubbard(l, l, t, u, spinless=True)
@@ -88,9 +96,29 @@ def main():
     if not converged:
         print("DMRG failed to converge.")
     ground_state = dmrg.state
+
+    # Convert the ground state MPS to a vector.
+    gs_tensor = ground_state.contract()
+    gs_numpy = gs_tensor.data
+    gs_vector = gs_numpy.reshape(gs_numpy.size)
+
     energy = mpo_mps_exepctation(ham_mpo, ground_state)
     number = mpo_mps_exepctation(total_number_mpo, ground_state)
+    qubit_map = {q: i for i, q in enumerate(qs)}
+    energy_cirq = ham_cirq.expectation_from_state_vector(gs_vector, qubit_map)
+    number_cirq = total_number_cirq.expectation_from_state_vector(gs_vector, qubit_map)
+    print("Quimb result:")
     print(f"Energy = {energy}, number = {number}")
+    print("Cirq result:")
+    print(f"Energy = {energy_cirq}, number = {number_cirq}")
+
+    f = h5py.File(args.output_filename, "w")
+    f.create_dataset("ground_state", data=gs_vector)
+    f.create_dataset("energy", data=energy)
+    f.create_dataset("number", data=number)
+    f.create_dataset("energy_cirq", data=energy_cirq)
+    f.create_dataset("number_cirq", data=number_cirq)
+    f.close()
 
 if __name__ == "__main__":
     main()
