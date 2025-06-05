@@ -1,6 +1,7 @@
 from typing import List
 import argparse
 import pickle
+import json
 import h5py
 import numpy as np
 import scipy.linalg as la
@@ -50,44 +51,43 @@ def perturb_state_with_cb_state(ref_state: np.ndarray, cb_state: List[bool], rat
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("n", type=int, help="Length of square lattice.")
-    parser.add_argument("tau", type=float, help="Evolution time for U.")
-    parser.add_argument("steps", type=int, help="Number of steps for U.")
-    parser.add_argument("d", type=int, help="Subspace dimension")
-    parser.add_argument(
-        "ratio",
-        type=float, help="Ratio of exact ground state to computational basis state in reference state vector."
-    )
+    parser.add_argument("input_file", type=str, help="JSON input file with parameters.")
     parser.add_argument("exact_input_file", type=str, help="HDF5 file with ground state.")
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
 
+    with open(args.input_file) as f:
+        input_dict = json.load(f)
+    l = input_dict["l"] # Number of lattice sites on each side.
+    n_occ = input_dict["n_occ"] # Number of occupied orbitals.
+    t = input_dict["t"] # Hopping rate
+    u = input_dict["u"] # Interaction strength.
+    steps = input_dict["steps"]
+    ratio = input_dict["ratio"]
+    d = input_dict["d"]
+    tau = input_dict["tau"]
+
     #hamiltonian = kc.load_water_hamiltonian()
-    hamiltonian: of.QubitOperator = kc.load_hubbard_hamiltonian(args.n)
+    ham_fermi = of.hamiltonians.fermi_hubbard(l, l, t, u, spinless=True)
+    hamiltonian = of.transforms.jordan_wigner(ham_fermi)
     nq = of.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
 
-    # We start in the same state as the exact diagonalization study.
-    #state_prep_ckt = kc.hf_ref_circuit(nq, 10)
-    state_prep_ckt = kc.neel_state_circuit(nq)
-    #state_prep_ckt = kc.neel_state_circuit_qiskit(nq)
-
     # Get the first-order Trotter circuit.
-    # TODO try from qiskit.qasm3 import dumps
     use_paulihedral = True
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     if use_paulihedral:
         ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
-        dt = args.tau / float(args.steps)
+        dt = tau / float(steps)
         ev_gate = qiskit.circuit.library.PauliEvolutionGate(ham_qiskit, time=dt)
         ev_ckt_qiskit = qiskit.QuantumCircuit(nq)
-        for _ in range(args.steps):
+        for _ in range(steps):
             ev_ckt_qiskit.append(ev_gate, range(nq))
     else:
         assert len(ham_paulisum.qubits) == nq
         assert set(ham_paulisum.qubits).issubset(set(qs))
-        tau = args.tau
-        steps = args.steps
+        tau = tau
+        steps = steps
         dt = tau / float(steps)
         groups = get_si_sets(ham_paulisum, k=1)
         with open("hubbard_groups.pkl", "wb") as f:
@@ -103,27 +103,27 @@ def main():
     # For debug purposes: Get the exact ground state from the hubbard_exact.h5 file,
     # and perturb it with a computational basis state.
     f_in = h5py.File(args.exact_input_file, "r")
-    ground_state = f_in["eigenvectors"][:, 0]
-    n_occ = round(f_in["reference_number_expectation"][()].real)
+    ground_state = f_in["ground_state"][:]
+    n_occ = round(f_in["number"][()].real)
     f_in.close()
     print(f"{n_occ} occupied states in reference.")
     b = [True] * n_occ + [False] * (nq - n_occ)
-    assert 0.0 <= args.ratio <= 1.0
-    ref_state = perturb_state_with_cb_state(ground_state, b, args.ratio)
+    assert 0.0 <= ratio <= 1.0
+    ref_state = perturb_state_with_cb_state(ground_state, b, ratio)
     qubit_map = dict(zip(qs, range(len(qs))))
     ref_state_energy = ham_paulisum.expectation_from_state_vector(ref_state, qubit_map)
     print(f"Reference energy = {ref_state_energy}")
     del ground_state
 
     # Compute the subspace matrices.
-    d_max = args.d
+    d_max = d
     h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     # Write to file.
     f = h5py.File(args.output_file, "w")
-    f.create_dataset("n", data=args.n)
-    f.create_dataset("tau", data=args.tau)
-    f.create_dataset("steps", data=args.steps)
-    f.create_dataset("ratio", data=args.ratio)
+    f.create_dataset("l", data=l)
+    f.create_dataset("tau", data=tau)
+    f.create_dataset("steps", data=steps)
+    f.create_dataset("ratio", data=ratio)
     # f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
     # f.create_dataset("evolution_circuit_qasm", data=evolution_ckt_qasm)
     # f.create_dataset("groups", data=str(groups))

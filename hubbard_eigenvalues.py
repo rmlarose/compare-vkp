@@ -1,8 +1,9 @@
 from typing import List, Tuple
 import argparse
+import json
+import h5py
 import numpy as np
 import scipy.linalg as la
-import h5py
 import pandas as pd
 
 def threshold_eigenvalues(h: np.ndarray, s: np.ndarray, eps: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -27,13 +28,19 @@ def threshold_eigenvalues(h: np.ndarray, s: np.ndarray, eps: float) -> Tuple[np.
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", type=str, help="HDF5 file with subsapce matrices.")
+    parser.add_argument("input_file", type=str, help="JSON file with parameters.")
+    parser.add_argument("subspace_input_file", type=str, help="HDF5 file with subsapce matrices.")
     parser.add_argument("output_file", type=str, help="HDF5 file for output.")
-    parser.add_argument("eps", type=float, help="Eigenvalue threshold.")
     args = parser.parse_args()
 
+    with open(args.input_file) as f:
+        input_dict = json.load(f)
+    d = input_dict["d"]
+    eps = input_dict["eps"]
+
+
     # Load subspace matrices from "hubbard_subspace_matrices.h5"
-    f = h5py.File(args.input_file, "r")
+    f = h5py.File(args.subspace_input_file, "r")
     # Get the subspace matrices.
     h = np.array(f.get("h"))
     s = np.array(f.get("s"))
@@ -44,22 +51,23 @@ def main():
     # assert la.ishermitian(h)
     # assert la.ishermitian(s)
     # Get ground state energies for various subspace dimensions and thresholds.
-    results: List[Tuple[int, float, float]] = []
+    results: List[Tuple[int, float, float, float]] = []
     for d in range(3, h.shape[0]+1):
         # Get the top d * d blocks of h and s.
         h_d = h[:d, :d]
         s_d = s[:d, :d]
         # Project onto the thresholded subspace.
-        new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=args.eps)
+        new_h, new_s = threshold_eigenvalues(h_d, s_d, eps=eps)
         evals, evecs = la.eigh(new_h, new_s)
         print(d, np.min(evals))
-        results.append((d, args.eps, np.min(evals), new_h.shape[0]))
+        results.append((d, eps, np.min(evals), new_h.shape[0]))
     print("Final result:", results[-1])
+
     # Output to HDF5 file.
     f_out = h5py.File(args.output_file, "a")
     f_out.create_dataset("tau", data=tau_input)
     f_out.create_dataset("steps", data=steps_input)
-    f_out.create_dataset("eps", data=args.eps)
+    f_out.create_dataset("eps", data=eps)
     f_out.close()
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
     df.index.name = "i"

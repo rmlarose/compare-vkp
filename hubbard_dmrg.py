@@ -63,7 +63,8 @@ def main():
     parser.add_argument("output_filename", type=str, help="HDF5 ouptut file for ground state.")
     args = parser.parse_args()
 
-    input_dict = json.load(args.input_filename)
+    with open(args.input_filename) as f:
+        input_dict = json.load(f)
     l = input_dict["l"] # Number of lattice sites on each side.
     n_occ = input_dict["n_occ"] # Number of occupied orbitals.
     t = input_dict["t"] # Hopping rate
