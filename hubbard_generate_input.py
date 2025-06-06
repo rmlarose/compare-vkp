@@ -1,12 +1,18 @@
+import argparse
 import json
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("l", type=int, help="Lattice dimension.")
+    parser.add_argument("u_t_ratio", type=float, help="Ratio U/t.")
+    args = parser.parse_args()
+
     steps = [10, 20, 40, 50, 60, 100, 150, 200, 250, 300, 350, 400]
 
-    l = 2
+    l = args.l
     n_occ = (l * l) / 2 # Half filling
     t = 1.0
-    u = 2.0
+    u = args.u_t_ratio
     alpha = 3.0
     max_bond = 100
     tau = 0.1
