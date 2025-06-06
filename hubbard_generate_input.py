@@ -10,7 +10,7 @@ def main():
     steps = [10, 20, 40, 50, 60, 100, 150, 200, 250, 300, 350, 400]
 
     l = args.l
-    n_occ = (l * l) / 2 # Half filling
+    n_occ = int((l * l) / 2) # Half filling
     t = 1.0
     u = args.u_t_ratio
     alpha = 3.0
