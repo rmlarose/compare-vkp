@@ -99,7 +99,7 @@ def main():
     ground_state = dmrg.state
 
     # Convert the ground state MPS to a vector.
-    gs_tensor = ground_state.contract()
+    gs_tensor = ground_state.contract().transpose(*[f"k{i}" for i in range(nq)])
     gs_numpy = gs_tensor.data
     gs_vector = gs_numpy.reshape(gs_numpy.size)
 
