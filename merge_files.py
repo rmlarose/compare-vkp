@@ -12,7 +12,7 @@ def main():
 
     # Transfer data from the subspace matrix file.
     subspace_f = h5py.File(args.subspace_file, "r")
-    new_f.create_dataset("n", data=subspace_f["n"][()])
+    new_f.create_dataset("l", data=subspace_f["l"][()])
     new_f.create_dataset("tau", data=subspace_f["tau"][()])
     new_f.create_dataset("steps", data=subspace_f["steps"][()])
     new_f.create_dataset("ratio", data=subspace_f["ratio"][()])
