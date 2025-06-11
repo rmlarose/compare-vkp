@@ -64,7 +64,7 @@ def main():
     print("Final result:", results[-1])
 
     # Output to HDF5 file.
-    f_out = h5py.File(args.output_file, "a")
+    f_out = h5py.File(args.output_file, "w")
     f_out.create_dataset("tau", data=tau_input)
     f_out.create_dataset("steps", data=steps_input)
     f_out.create_dataset("eps", data=eps)
