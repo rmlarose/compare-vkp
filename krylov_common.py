@@ -245,6 +245,29 @@ def subspace_matrices_from_ref_state(
     return h, s
 
 
+def fill_subspace_matrices(
+    mat_elems: List[complex], overlaps: List[complex]
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Fill subspace matrices from the computed matrix elements and overlaps."""
+
+    assert len(mat_elems) == len(overlaps)
+    d = len(mat_elems)
+    h = np.zeros((d, d), dtype=complex)
+    s = np.zeros((d, d), dtype=complex)
+    for i in range(d): # Loop over rows.
+        for j in range(d):
+            if i == j:
+                h[i, i] = mat_elems[0]
+                s[i, i] = overlaps[0]
+            elif i > j:
+                h[i, j] = mat_elems[i - j]
+                s[i, j] = overlaps[i - j]
+            else: # i < j
+                h[i, j] = mat_elems[j - i].conjugate()
+                s[i, j] = overlaps[j - i].conjugate()
+    return h, s
+
+
 def subspace_matrices(
     ham: of.QubitOperator,
     state_prep_circuit: qiskit.QuantumCircuit | cirq.Circuit,
