@@ -11,6 +11,7 @@ import qiskit
 import openfermion as of
 import qiskit
 from qiskit import qpy
+from quimb.tensor.tensor_1d import MatrixProductState
 from kcommute import get_si_sets
 from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
@@ -66,6 +67,8 @@ def main():
     ratio = input_dict["ratio"]
     d = input_dict["d"]
     tau = input_dict["tau"]
+    max_circuit_bond = input_dict["max_circuit_bond"]
+    max_mpo_bond = input_dict["max_mpo_bond"]
 
     #hamiltonian = kc.load_water_hamiltonian()
     ham_fermi = of.hamiltonians.fermi_hubbard(l, l, t, u, spinless=True)
@@ -117,7 +120,13 @@ def main():
 
     # Compute the subspace matrices.
     d_max = d
-    h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
+    use_tebd = True
+    if not use_tebd:
+        h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
+    else:
+        reference_mps = MatrixProductState.from_dense(ref_state)
+        h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
+                                         d_max, max_circuit_bond, max_mpo_bond)
     # Write to file.
     f = h5py.File(args.output_file, "w")
     f.create_dataset("l", data=l)

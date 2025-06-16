@@ -9,7 +9,10 @@ import qiskit
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
 from qiskit_aer import AerSimulator
+import quimb.tensor as qtn
+from quimb.tensor.tensor_1d import MatrixProductState
 import convert
+from tensor_network_common import pauli_sum_to_mpo
 
 def xyz_hamiltonian(l: int, h: float, j: np.ndarray) -> of.QubitOperator:
     """Heisenberg XYZ Hamiltonian
@@ -317,6 +320,61 @@ def energy_vs_d(h, s, step:int = 1) -> Tuple[List[int], List[float]]:
         lam, v = la.eig(h[:d, :d], s[:d, :d])
         energies.append(np.min(lam))
     return ds, energies
+
+
+def tebd_matrix_element_and_overlap(
+    hamiltonian: cirq.PauliSum,
+    evolution_circuit: qiskit.QuantumCircuit,
+    reference_mps: MatrixProductState,
+    d: int,
+    max_circuit_bond: int,
+    max_mpo_bond: int
+) -> Tuple[complex, complex]:
+    """Compute <psi|HU^d|psi> and <psi|U^d|psi> using TEBD"""
+
+    if d == 0:
+        evolved_mps = reference_mps.copy()
+    else:
+        # Make a circuit with d repetitions of the evolution circuit.
+        nq = evolution_circuit.num_qubits
+        total_circuit = qiskit.QuantumCircuit(nq)
+        for _ in range(d):
+            total_circuit = total_circuit.compose(evolution_circuit)
+        # Convert the circuit to quimb format.
+        qasm_str = dumps(total_circuit)
+        # circuit_quimb = qtn.circuit.Circuit(psi0=reference_mps).from_qasm(qasm_str)
+        # circuit_mps = qtn.circuit.CircuitMPS(psi0=reference_mps, max_bond=max_circuit_bond)
+        # circuit_mps.apply_gates(circuit_quimb.gates)
+        circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
+            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond
+        )
+        evolved_mps = circuit_mps.psi
+    # Build tensor networks for <psi| U^d |psi> and <psi| H U^d |psi>
+    overlap = reference_mps.H @ evolved_mps
+    ham_mpo = pauli_sum_to_mpo(hamiltonian, hamiltonian.qubits, max_mpo_bond)
+    mat_elem = reference_mps.H @ ham_mpo.apply(evolved_mps)
+    return (mat_elem, overlap)
+
+
+def tebd_subspace_matrices(
+    hamiltonian: cirq.PauliSum, evolution_circuit: qiskit.QuantumCircuit,
+    ref_state: MatrixProductState,
+    d_max: int, max_circuit_bond: int, max_mpo_bond: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Comopute subspace matrices with TEBD."""
+
+    matrix_elements: List[complex] = []
+    overlaps: List[complex] = []
+    for d in range(d_max):
+        print(f"d={d}")
+        mat_elem, overlap = tebd_matrix_element_and_overlap(
+            hamiltonian, evolution_circuit, ref_state, d,
+            max_circuit_bond, max_mpo_bond
+        )
+        matrix_elements.append(mat_elem)
+        overlaps.append(overlap)
+    h, s = fill_subspace_matrices(matrix_elements, overlaps)
+    return (h, s)
 
 
 @dataclass 
