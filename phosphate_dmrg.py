@@ -12,7 +12,7 @@ import quimb.tensor as qtn
 from openfermion_helper import preprocess_hamiltonian
 import tensor_network_common as tnc
 
-def load_hamiltonian(downfold: bool = False) -> of.QubitOperator:
+def load_hamiltonian(downfold: bool = True) -> of.QubitOperator:
     if not downfold:
         geometry = [
             ("P", (-1.034220, -0.234256,0.672434)),
@@ -39,6 +39,7 @@ def load_hamiltonian(downfold: bool = False) -> of.QubitOperator:
         )  # Drop identity.
     else:
         hamiltonian = of.utils.load_operator(file_name="owp_631gd_22_ducc.data", data_directory=".")
+        hamiltonian_processed = of.transforms.jordan_wigner(hamiltonian)
     return hamiltonian_processed
 
 
@@ -57,11 +58,12 @@ def main():
     n_fermions = input_dict["n_fermions"] # Number of electrons in the system.
 
     hamiltonian = load_hamiltonian()
-    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     nq = of.utils.count_qubits(hamiltonian)
     print(f"There are {nq} qubits in the Hamiltonian and {len(hamiltonian.terms)} terms.")
+    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     qs = cirq.LineQubit.range(nq)
     ham_mpo = tnc.pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
+    print("Finished converting to MPO.")
 
     # Add alpha * (N - N_occ)^2 to the Hamiltonian to ensure the occupation number.
     total_number = tnc.total_number_qubit_operator(nq)
