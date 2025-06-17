@@ -1,6 +1,7 @@
 from typing import List
 import numpy as np
 import cirq
+import openfermion as of
 import quimb.tensor as qtn
 from quimb.tensor.tensor_1d import MatrixProductOperator, MatrixProductState
 from quimb.tensor.tensor_1d_compress import tensor_network_1d_compress_direct
@@ -49,3 +50,23 @@ def mpo_mps_exepctation(mpo: MatrixProductOperator, mps: MatrixProductState) -> 
 
     mpo_times_mps = mpo.apply(mps)
     return mps.H @ mpo_times_mps
+
+
+def total_number_qubit_operator(n_orbitals: int, use_jw=True) -> of.QubitOperator:
+    """Get a Pauli sum representing the total number operator.
+    
+    Arugments:
+    n_orbitals - Number of orbitals in the system.
+    use_jw - Whether to use Jordan-Wigner. Otherwise, use Bravyi-Kitaev.
+    
+    Returns:
+    A QubitOperator representation of the total number operator."""
+
+    total_number = of.FermionOperator.zero()
+    for i in range(n_orbitals):
+        total_number += of.FermionOperator(f"{i}^ {i}", 1.0)
+    if use_jw:
+        total_number_qubit = of.transforms.jordan_wigner(total_number)
+    else:
+        total_number_qubit = of.transforms.bravyi_kitaev(total_number)
+    return total_number_qubit
