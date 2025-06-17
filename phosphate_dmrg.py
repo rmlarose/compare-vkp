@@ -12,30 +12,33 @@ import quimb.tensor as qtn
 from openfermion_helper import preprocess_hamiltonian
 import tensor_network_common as tnc
 
-def load_hamiltonian() -> of.QubitOperator:
-    geometry = [
-        ("P", (-1.034220, -0.234256,0.672434)),
-        ("O", (-1.004065, 0.890081, -0.334695)),
-        ("O", (-0.003166, -1.329504, 0.557597)),
-        ("O", (-2.065823, -0.232403, 1.765329)),
-        ("H", (0.881055, 0.866924, -1.063283)),
-        ("O", (1.748944, 0.417505, -1.047631)),
-        ("H", (1.477276, -0.378346, -0.549750)),
-    ]
-    basis = "sto-3g"
-    multiplicity = 1
-    charge = 1
+def load_hamiltonian(downfold: bool = False) -> of.QubitOperator:
+    if not downfold:
+        geometry = [
+            ("P", (-1.034220, -0.234256,0.672434)),
+            ("O", (-1.004065, 0.890081, -0.334695)),
+            ("O", (-0.003166, -1.329504, 0.557597)),
+            ("O", (-2.065823, -0.232403, 1.765329)),
+            ("H", (0.881055, 0.866924, -1.063283)),
+            ("O", (1.748944, 0.417505, -1.047631)),
+            ("H", (1.477276, -0.378346, -0.549750)),
+        ]
+        basis = "sto-3g"
+        multiplicity = 1
+        charge = 1
 
-    molecule = MolecularData(geometry, basis, multiplicity, charge)
-    mol = run_pyscf(molecule, run_mp2=True, run_cisd=False, run_ccsd=False, run_fci=False)
-    mol.save()
-    hamiltonian = MolecularData(filename=molecule.filename)
-    hamiltonian = hamiltonian.get_molecular_hamiltonian()
-    hamiltonian = of.get_fermion_operator(hamiltonian)
-    hamiltonian_openfermion = of.jordan_wigner(hamiltonian)
-    hamiltonian_processed = preprocess_hamiltonian(
-        hamiltonian_openfermion, drop_term_if=[lambda term: term == ()]
-    )  # Drop identity.
+        molecule = MolecularData(geometry, basis, multiplicity, charge)
+        mol = run_pyscf(molecule, run_mp2=True, run_cisd=False, run_ccsd=False, run_fci=False)
+        mol.save()
+        hamiltonian = MolecularData(filename=molecule.filename)
+        hamiltonian = hamiltonian.get_molecular_hamiltonian()
+        hamiltonian = of.get_fermion_operator(hamiltonian)
+        hamiltonian_openfermion = of.jordan_wigner(hamiltonian)
+        hamiltonian_processed = preprocess_hamiltonian(
+            hamiltonian_openfermion, drop_term_if=[lambda term: term == ()]
+        )  # Drop identity.
+    else:
+        hamiltonian = of.utils.load_operator(file_name="owp_631gd_22_ducc.data", data_directory=".")
     return hamiltonian_processed
 
 
@@ -56,7 +59,7 @@ def main():
     hamiltonian = load_hamiltonian()
     ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     nq = of.utils.count_qubits(hamiltonian)
-    print(f"There are {nq} qubits in the Hamiltonian.")
+    print(f"There are {nq} qubits in the Hamiltonian and {len(hamiltonian.terms)} terms.")
     qs = cirq.LineQubit.range(nq)
     ham_mpo = tnc.pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
 
