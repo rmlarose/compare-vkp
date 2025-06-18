@@ -27,10 +27,7 @@ def main():
     with open(args.input_file) as f:
         input_dict = json.load(f)
     n_occ = input_dict["n_occ"] # Number of occupied orbitals.
-    t = input_dict["t"] # Hopping rate
-    u = input_dict["u"] # Interaction strength.
     steps = input_dict["steps"]
-    ratio = input_dict["ratio"]
     d = input_dict["d"]
     tau = input_dict["tau"]
     max_circuit_bond = input_dict["max_circuit_bond"]
