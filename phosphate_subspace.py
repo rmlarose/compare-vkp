@@ -20,7 +20,6 @@ from convert import cirq_pauli_sum_to_qiskit_pauli_op
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="JSON input file with parameters.")
-    parser.add_argument("exact_input_file", type=str, help="HDF5 file with ground state.")
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
 
