@@ -20,6 +20,7 @@ from convert import cirq_pauli_sum_to_qiskit_pauli_op
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="JSON input file with parameters.")
+    parser.add_argument("hamiltonian_directory", type=str, help="Directory for Hamiltonian file.")
     parser.add_argument("hamiltonian_file", type=str, help="File with Hamiltonian data.")
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
@@ -34,7 +35,7 @@ def main():
     max_circuit_bond = input_dict["max_circuit_bond"]
     max_mpo_bond = input_dict["max_mpo_bond"]
 
-    ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=".")
+    ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
     hamiltonian = of.transforms.jordan_wigner(ham_fermi)
     nq = of.utils.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
