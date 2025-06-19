@@ -65,8 +65,8 @@ def main():
         )
         ev_ckt_qasm = evolution_ckt.to_qasm()
         ev_ckt_qiskit = qiskit.QuantumCircuit.from_qasm_str(ev_ckt_qasm)
-    with open("hubbard_trotter_ckt.qpy", "wb") as f:
-        qpy.dump(ev_ckt_qiskit, f)
+    # with open("hubbard_trotter_ckt.qpy", "wb") as f:
+    #     qpy.dump(ev_ckt_qiskit, f)
 
     # We will use a Hartree-Fock state as our reference.
     reference_circuit = qiskit.QuantumCircuit(nq)
