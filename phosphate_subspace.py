@@ -24,6 +24,7 @@ def main():
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
 
+    print("Reading input.")
     with open(args.input_file) as f:
         input_dict = json.load(f)
     n_occ = input_dict["n_occ"] # Number of occupied orbitals.
@@ -38,6 +39,7 @@ def main():
     nq = of.utils.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
 
+    print("Compiling circuits.")
     # Get the first-order Trotter circuit.
     use_paulihedral = True
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
@@ -76,6 +78,7 @@ def main():
     ref_state_energy = hamiltonian.expectation_from_state_vector(ref_state)
 
     # Compute the subspace matrices.
+    print("Computing subspace matrices.")
     d_max = d
     use_tebd = True
     if not use_tebd:
