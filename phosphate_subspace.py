@@ -11,7 +11,9 @@ import qiskit
 import openfermion as of
 import qiskit
 from qiskit import qpy
+from qiskit.qasm2 import dumps
 from quimb.tensor.tensor_1d import MatrixProductState
+from quimb.tensor.circuit import CircuitMPS
 from kcommute import get_si_sets
 from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
@@ -75,8 +77,11 @@ def main():
             reference_circuit.x(i)
         else:
             reference_circuit.id(i)
-    ref_state = qiskit.quantum_info.Statevector(reference_circuit).data
-    ref_state_energy = hamiltonian.expectation_from_state_vector(ref_state)
+    # ref_state = qiskit.quantum_info.Statevector(reference_circuit).data
+    # ref_state_energy = hamiltonian.expectation_from_state_vector(ref_state)
+    ref_circuit_qasm = dumps(reference_circuit)
+    quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
+    reference_mps = quimb_circuit.psi
 
     # Compute the subspace matrices.
     print("Computing subspace matrices.")
@@ -85,7 +90,7 @@ def main():
     if not use_tebd:
         h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     else:
-        reference_mps = MatrixProductState.from_dense(ref_state)
+        # reference_mps = MatrixProductState.from_dense(ref_state)
         h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
                                          d_max, max_circuit_bond, max_mpo_bond)
     # Write to file.
