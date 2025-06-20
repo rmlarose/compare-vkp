@@ -2,6 +2,7 @@ from typing import List
 import argparse
 import pickle
 import json
+from mpi4py import MPI
 import h5py
 import numpy as np
 import scipy.linalg as la
@@ -56,6 +57,10 @@ def main():
     parser.add_argument("exact_input_file", type=str, help="HDF5 file with ground state.")
     parser.add_argument("output_file", type=str, help="Output filename.")
     args = parser.parse_args()
+
+    comm = MPI.COMM_WORLD
+    mpi_comm_rank = comm.Get_rank()
+    mpi_comm_size = comm.Get_size()
 
     with open(args.input_file) as f:
         input_dict = json.load(f)
@@ -125,23 +130,27 @@ def main():
         h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     else:
         reference_mps = MatrixProductState.from_dense(ref_state)
-        h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
-                                         d_max, max_circuit_bond, max_mpo_bond)
-    # Write to file.
-    f = h5py.File(args.output_file, "w")
-    f.create_dataset("l", data=l)
-    f.create_dataset("tau", data=tau)
-    f.create_dataset("steps", data=steps)
-    f.create_dataset("ratio", data=ratio)
-    # f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
-    # f.create_dataset("evolution_circuit_qasm", data=evolution_ckt_qasm)
-    # f.create_dataset("groups", data=str(groups))
-    f.create_dataset("d_max", data=d_max)
-    f.create_dataset("h", data=h)
-    f.create_dataset("s", data=s)
-    f.create_dataset("ref_state", data=ref_state)
-    f.create_dataset("reference_energy", data=ref_state_energy)
-    f.close()
+        # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
+        #                                  d_max, max_circuit_bond, max_mpo_bond)
+        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_qiskit, reference_mps,
+                                         d_max, max_circuit_bond, max_mpo_bond,
+                                         mpi_comm_rank, mpi_comm_size)
+    if mpi_comm_rank == 0:
+        # Write to file.
+        f = h5py.File(args.output_file, "w")
+        f.create_dataset("l", data=l)
+        f.create_dataset("tau", data=tau)
+        f.create_dataset("steps", data=steps)
+        f.create_dataset("ratio", data=ratio)
+        # f.create_dataset("prep_circuit_qasm", data=prep_ckt_qasm)
+        # f.create_dataset("evolution_circuit_qasm", data=evolution_ckt_qasm)
+        # f.create_dataset("groups", data=str(groups))
+        f.create_dataset("d_max", data=d_max)
+        f.create_dataset("h", data=h)
+        f.create_dataset("s", data=s)
+        f.create_dataset("ref_state", data=ref_state)
+        f.create_dataset("reference_energy", data=ref_state_energy)
+        f.close()
 
 if __name__ == "__main__":
     main()

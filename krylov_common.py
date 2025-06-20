@@ -1,5 +1,6 @@
 from typing import Tuple, List
 from dataclasses import dataclass
+from mpi4py import MPI
 import numpy as np
 import scipy.linalg as la
 import cirq
@@ -376,6 +377,38 @@ def tebd_subspace_matrices(
     h, s = fill_subspace_matrices(matrix_elements, overlaps)
     return (h, s)
 
+
+def tebd_subspace_matrices_parallel(
+    hamiltonian: cirq.PauliSum, evolution_circuit: qiskit.QuantumCircuit,
+    ref_state: MatrixProductState,
+    d_max: int, max_circuit_bond: int, max_mpo_bond: int,
+    mpi_comm_rank: int, mpi_comm_size: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Comopute subspace matrices with TEBD."""
+
+    assert mpi_comm_size == d_max, \
+        f"Calculating {d_max} elements, but using {mpi_comm_size} processes."
+
+    # Each process compuate a specific matrix element.
+    # Give each process a value of d, the power of the unitary U.
+    all_d_vals = np.array(range(d_max))
+    comm = MPI.COMM_WORLD
+    my_d = comm.scatter(all_d_vals, root=0)
+    mat_elem, overlap = tebd_matrix_element_and_overlap(
+        hamiltonian, evolution_circuit, ref_state, my_d,
+        max_circuit_bond, max_mpo_bond
+    )
+    # Build a list of all the calculated matrix elements.
+    # matrix_elements = np.zeros(d_max, dtype=complex)
+    # overlaps = np.zeros(d_max, dtype=complex)
+    # matrix_elements = np.array(comm.gather(mat_elem, root=0))
+    # overlaps = np.array(comm.gather(overlap, root=0))
+    # comm.Bcast([matrix_elements, MPI.COMPLEX], root=0)
+    # comm.Bcast([overlaps, MPI.COMPLEX], root=0)
+    matrix_elements = comm.allgather(mat_elem)
+    overlaps = comm.allgather(overlap)
+    h, s = fill_subspace_matrices(matrix_elements, overlaps)
+    return (h, s)
 
 @dataclass 
 class RTESubspaceResult:
