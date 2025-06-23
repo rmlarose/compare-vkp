@@ -2,6 +2,7 @@ from typing import List
 import argparse
 import pickle
 import json
+from mpi4py import MPI
 import h5py
 import numpy as np
 import scipy.linalg as la
@@ -36,6 +37,10 @@ def main():
     tau = input_dict["tau"]
     max_circuit_bond = input_dict["max_circuit_bond"]
     max_mpo_bond = input_dict["max_mpo_bond"]
+
+    comm = MPI.COMM_WORLD
+    mpi_comm_rank = comm.Get_rank()
+    mpi_comm_size = comm.Get_size()
 
     ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
     hamiltonian = of.transforms.jordan_wigner(ham_fermi)
@@ -75,13 +80,14 @@ def main():
     for i in range(nq):
         if i < n_occ:
             reference_circuit.x(i)
-        else:
-            reference_circuit.id(i)
+        # else:
+        #     reference_circuit.id(i)
     # ref_state = qiskit.quantum_info.Statevector(reference_circuit).data
     # ref_state_energy = hamiltonian.expectation_from_state_vector(ref_state)
     ref_circuit_qasm = dumps(reference_circuit)
     quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
     reference_mps = quimb_circuit.psi
+    assert len(reference_mps.tensor_map) == nq
 
     # Compute the subspace matrices.
     print("Computing subspace matrices.")
@@ -91,17 +97,21 @@ def main():
         h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     else:
         # reference_mps = MatrixProductState.from_dense(ref_state)
-        h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
-                                         d_max, max_circuit_bond, max_mpo_bond)
+        # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
+        #                                  d_max, max_circuit_bond, max_mpo_bond)
+        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_qiskit, reference_mps,
+                                         d_max, max_circuit_bond, max_mpo_bond,
+                                         mpi_comm_rank, mpi_comm_size)
     # Write to file.
-    f = h5py.File(args.output_file, "w")
-    f.create_dataset("tau", data=tau)
-    f.create_dataset("steps", data=steps)
-    f.create_dataset("d_max", data=d_max)
-    f.create_dataset("h", data=h)
-    f.create_dataset("s", data=s)
-    f.create_dataset("reference_energy", data=ref_state_energy)
-    f.close()
+    if mpi_comm_rank == 0:
+        f = h5py.File(args.output_file, "w")
+        f.create_dataset("tau", data=tau)
+        f.create_dataset("steps", data=steps)
+        f.create_dataset("d_max", data=d_max)
+        f.create_dataset("h", data=h)
+        f.create_dataset("s", data=s)
+        f.create_dataset("reference_energy", data=ref_state_energy)
+        f.close()
 
 if __name__ == "__main__":
     main()
