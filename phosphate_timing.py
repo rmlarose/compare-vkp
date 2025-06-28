@@ -22,8 +22,9 @@ import krylov_common as kc
 from convert import cirq_pauli_sum_to_qiskit_pauli_op
 
 tau = 1e-1
-steps = 100
+steps = 1
 n_occ = 32
+print(f"Simulating tau={tau} with {steps} steps.")
 
 print("Loading and converting Hamiltonian.")
 ham_start_time = process_time_ns()
@@ -46,7 +47,9 @@ for _ in range(steps):
     ev_ckt_qiskit.append(ev_gate, range(nq))
 compile_end_time = process_time_ns()
 compile_elapsed_time = compile_end_time - compile_start_time
+transpiled_circuit = qiskit.transpile(ev_ckt_qiskit)
 print(f"Time to compile {compile_elapsed_time:1.6e}")
+print(f"Circuit depth {transpiled_circuit.depth()}")
 
 reference_circuit = qiskit.QuantumCircuit(nq)
 for i in range(nq):
@@ -57,8 +60,8 @@ quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
 reference_mps = quimb_circuit.psi
 assert len(reference_mps.tensor_map) == nq
 
-max_circuit_bond = 200
-max_mpo_bond = 200
+max_circuit_bond = 80
+max_mpo_bond = 80
 d = 1
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
