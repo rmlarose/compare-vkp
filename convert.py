@@ -8,7 +8,7 @@ import numpy as np
 import openfermion as of
 import qiskit
 from qiskit.quantum_info import SparsePauliOp
-import mitiq
+
 
 def cirq_pauli_sum_to_qiskit_pauli_op(pauli_sum: cirq.PauliSum) -> SparsePauliOp:
     """Returns a qiskit.SparsePauliOp representation of the cirq.PauliSum."""

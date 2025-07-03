@@ -24,12 +24,14 @@ from convert import cirq_pauli_sum_to_qiskit_pauli_op
 tau = 1e-1
 steps = 1
 n_occ = 32
+threshold_tolerance: float = 1e-2
 print(f"Simulating tau={tau} with {steps} steps.")
 
 print("Loading and converting Hamiltonian.")
 ham_start_time = process_time_ns()
 ham_fermi = of.utils.load_operator(file_name="owp_631gd_22_ducc.data", data_directory=".")
 hamiltonian = of.transforms.jordan_wigner(ham_fermi)
+hamiltonian.compress(abs_tol=threshold_tolerance)
 nq = of.utils.count_qubits(hamiltonian)
 qs = cirq.LineQubit.range(nq)
 ham_end_time = process_time_ns()
@@ -47,7 +49,7 @@ for _ in range(steps):
     ev_ckt_qiskit.append(ev_gate, range(nq))
 compile_end_time = process_time_ns()
 compile_elapsed_time = compile_end_time - compile_start_time
-transpiled_circuit = qiskit.transpile(ev_ckt_qiskit)
+transpiled_circuit = qiskit.transpile(ev_ckt_qiskit, basis_gates=["u3", "cx"])
 print(f"Time to compile {compile_elapsed_time:1.6e}")
 print(f"Circuit depth {transpiled_circuit.depth()}")
 
@@ -60,14 +62,14 @@ quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
 reference_mps = quimb_circuit.psi
 assert len(reference_mps.tensor_map) == nq
 
-max_circuit_bond = 80
+max_circuit_bond = 64
 max_mpo_bond = 80
 d = 1
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
 contract_start_time = process_time_ns()
 kc.tebd_matrix_element_and_overlap(
-    ham_paulisum, ev_ckt_qiskit, reference_mps,
+    ham_paulisum, transpiled_circuit, reference_mps,
     d, max_circuit_bond, max_mpo_bond
 )
 contract_end_time = process_time_ns()
