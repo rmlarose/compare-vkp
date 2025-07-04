@@ -37,6 +37,7 @@ def main():
     tau = input_dict["tau"]
     max_circuit_bond = input_dict["max_circuit_bond"]
     max_mpo_bond = input_dict["max_mpo_bond"]
+    threshold_tolerance: float = 1e-2
 
     comm = MPI.COMM_WORLD
     mpi_comm_rank = comm.Get_rank()
@@ -44,6 +45,7 @@ def main():
 
     ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
     hamiltonian = of.transforms.jordan_wigner(ham_fermi)
+    hamiltonian.compress(abs_tol=threshold_tolerance)
     nq = of.utils.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
 
