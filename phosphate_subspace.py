@@ -91,12 +91,14 @@ def main():
     reference_mps = quimb_circuit.psi
     assert len(reference_mps.tensor_map) == nq
 
+    ev_ckt_transpiled = qiskit.transpile(ev_ckt_qiskit, basis_gates=["u3", "cx"])
+
     # Compute the subspace matrices.
     print("Computing subspace matrices.")
     d_max = d
     use_tebd = True
     if not use_tebd:
-        h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
+        h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_transpiled, d_max)
     else:
         # reference_mps = MatrixProductState.from_dense(ref_state)
         # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
