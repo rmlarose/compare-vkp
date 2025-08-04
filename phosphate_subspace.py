@@ -103,7 +103,7 @@ def main():
         # reference_mps = MatrixProductState.from_dense(ref_state)
         # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
         #                                  d_max, max_circuit_bond, max_mpo_bond)
-        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_qiskit, reference_mps,
+        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_transpiled, reference_mps,
                                          d_max, max_circuit_bond, max_mpo_bond,
                                          mpi_comm_rank, mpi_comm_size)
     # Write to file.
