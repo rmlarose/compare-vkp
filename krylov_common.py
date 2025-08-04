@@ -398,6 +398,7 @@ def tebd_subspace_matrices_parallel(
         hamiltonian, evolution_circuit, ref_state, my_d,
         max_circuit_bond, max_mpo_bond
     )
+    print(mpi_comm_rank, mat_elem, overlap)
     # Build a list of all the calculated matrix elements.
     # matrix_elements = np.zeros(d_max, dtype=complex)
     # overlaps = np.zeros(d_max, dtype=complex)
