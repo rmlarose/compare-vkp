@@ -408,6 +408,7 @@ def tebd_subspace_matrices_parallel(
     # comm.Bcast([overlaps, MPI.COMPLEX], root=0)
     matrix_elements = comm.allgather(mat_elem)
     overlaps = comm.allgather(overlap)
+    print("All matrix elements sent to nodes.")
     h, s = fill_subspace_matrices(matrix_elements, overlaps)
     return (h, s)
 
