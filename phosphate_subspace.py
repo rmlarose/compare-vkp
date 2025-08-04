@@ -91,7 +91,9 @@ def main():
     reference_mps = quimb_circuit.psi
     assert len(reference_mps.tensor_map) == nq
 
+    print(f"Untranspiled circuit has depth {ev_ckt_qiskit.depth()}")
     ev_ckt_transpiled = qiskit.transpile(ev_ckt_qiskit, basis_gates=["u3", "cx"])
+    print(f"Transpiled circuit has depth {ev_ckt_transpiled.depth()}")
 
     # Compute the subspace matrices.
     print("Computing subspace matrices.")
@@ -114,7 +116,7 @@ def main():
         f.create_dataset("d_max", data=d_max)
         f.create_dataset("h", data=h)
         f.create_dataset("s", data=s)
-        f.create_dataset("reference_energy", data=ref_state_energy)
+        # f.create_dataset("reference_energy", data=ref_state_energy)
         f.close()
 
 if __name__ == "__main__":
