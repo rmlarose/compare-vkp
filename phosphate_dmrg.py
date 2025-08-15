@@ -40,6 +40,7 @@ def load_hamiltonian(downfold: bool = True, threshold: float = 1e-2) -> of.Qubit
     else:
         hamiltonian = of.utils.load_operator(file_name="owp_631gd_22_ducc.data", data_directory=".")
         hamiltonian_processed = of.transforms.jordan_wigner(hamiltonian)
+        # hamiltonian_processed = hamiltonian.copy()
     hamiltonian_processed.compress(abs_tol=threshold)
     return hamiltonian_processed
 
@@ -70,7 +71,7 @@ def main():
     # Add alpha * (N - N_occ)^2 to the Hamiltonian to ensure the occupation number.
     total_number = tnc.total_number_qubit_operator(nq)
     augmented_hamiltonian = hamiltonian + alpha * (total_number - n_fermions) ** 2
-    augmented_hamiltonian_cirq = of.transforms.jordan_wigner(augmented_hamiltonian)
+    augmented_hamiltonian_cirq = of.transforms.qubit_operator_to_pauli_sum(augmented_hamiltonian)
     augmented_hamiltonian_mpo = tnc.pauli_sum_to_mpo(augmented_hamiltonian_cirq, qs, max_mpo_bond)
 
     dmrg = qtn.DMRG(augmented_hamiltonian_mpo, bond_dims=max_bond)
