@@ -87,7 +87,7 @@ def main():
     with open(f"ground_state_{output_prefix}.pkl", "wb") as f:
         pickle.dump(ground_state, f)
     
-    output_dict = {"input": input_dict, "energy": energy}
+    output_dict = {"input": input_dict, "energy": energy.real}
     with open(output_fname, "w") as f:
         json.dump(output_dict, f)
 
