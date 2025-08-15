@@ -12,7 +12,7 @@ import quimb.tensor as qtn
 from openfermion_helper import preprocess_hamiltonian
 import tensor_network_common as tnc
 
-def load_hamiltonian(downfold: bool = True) -> of.QubitOperator:
+def load_hamiltonian(downfold: bool = True, threshold: float = 1e-2) -> of.QubitOperator:
     if not downfold:
         geometry = [
             ("P", (-1.034220, -0.234256,0.672434)),
@@ -40,6 +40,7 @@ def load_hamiltonian(downfold: bool = True) -> of.QubitOperator:
     else:
         hamiltonian = of.utils.load_operator(file_name="owp_631gd_22_ducc.data", data_directory=".")
         hamiltonian_processed = of.transforms.jordan_wigner(hamiltonian)
+    hamiltonian_processed.compress(abs_tol=threshold)
     return hamiltonian_processed
 
 
@@ -56,6 +57,7 @@ def main():
     max_mpo_bond = input_dict["max_mpo_bond"]
     alpha = input_dict["alpha"] # This factor regulates the occupation number.
     n_fermions = input_dict["n_fermions"] # Number of electrons in the system.
+    output_fname = input_dict["output_fname"]
 
     hamiltonian = load_hamiltonian()
     nq = of.utils.count_qubits(hamiltonian)
@@ -82,6 +84,10 @@ def main():
 
     with open("ground_state.pkl", "wb") as f:
         pickle.dump(ground_state, f)
+    
+    output_dict = {"input": input_dict, "energy": energy}
+    with open(output_fname, "w") as f:
+        json.dump(output_dict, f)
 
 if __name__ == "__main__":
     main()
