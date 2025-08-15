@@ -82,7 +82,8 @@ def main():
     energy = tnc.mpo_mps_exepctation(ham_mpo, ground_state)
     print("energy=", energy)
 
-    with open("ground_state.pkl", "wb") as f:
+    output_prefix = output_fname.split('.')[0]
+    with open(f"ground_state_{output_prefix}.pkl", "wb") as f:
         pickle.dump(ground_state, f)
     
     output_dict = {"input": input_dict, "energy": energy}
