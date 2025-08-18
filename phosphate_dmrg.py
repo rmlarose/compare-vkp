@@ -70,6 +70,8 @@ def main():
 
     # Add alpha * (N - N_occ)^2 to the Hamiltonian to ensure the occupation number.
     total_number = tnc.total_number_qubit_operator(nq)
+    total_number_cirq = of.transforms.qubit_operator_to_pauli_sum(total_number)
+    total_number_mpo = tnc.pauli_sum_to_mpo(total_number_cirq, qs, max_mpo_bond)
     augmented_hamiltonian = hamiltonian + alpha * (total_number - n_fermions) ** 2
     augmented_hamiltonian_cirq = of.transforms.qubit_operator_to_pauli_sum(augmented_hamiltonian)
     augmented_hamiltonian_mpo = tnc.pauli_sum_to_mpo(augmented_hamiltonian_cirq, qs, max_mpo_bond)
@@ -83,11 +85,14 @@ def main():
     energy = tnc.mpo_mps_exepctation(ham_mpo, ground_state)
     print("energy=", energy)
 
+    final_number = tnc.mpo_mps_exepctation(total_number_mpo, ground_state)
+    print("<N>=", final_number)
+
     output_prefix = output_fname.split('.')[0]
     with open(f"ground_state_{output_prefix}.pkl", "wb") as f:
         pickle.dump(ground_state, f)
     
-    output_dict = {"input": input_dict, "energy": energy.real}
+    output_dict = {"input": input_dict, "energy": energy.real, "number": final_number.real}
     with open(output_fname, "w") as f:
         json.dump(output_dict, f)
 
