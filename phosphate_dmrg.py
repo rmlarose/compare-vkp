@@ -8,6 +8,7 @@ import cirq
 import openfermion as of
 from openfermionpyscf import run_pyscf
 from openfermion.chem import geometry_from_pubchem, MolecularData
+import quimb
 import quimb.tensor as qtn
 from openfermion_helper import preprocess_hamiltonian
 import tensor_network_common as tnc
@@ -48,6 +49,7 @@ def load_hamiltonian(downfold: bool = True, threshold: float = 1e-2) -> of.Qubit
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="JSON input file with paramters.")
+    parser.add_argument("--mpofile", type=str, help="File containing a matrix product operator.")
     # parser.add_argument("output_file", type=str, help="HDF5 file for simulation output.")
     args = parser.parse_args()
 
@@ -60,21 +62,31 @@ def main():
     n_fermions = input_dict["n_fermions"] # Number of electrons in the system.
     output_fname = input_dict["output_fname"]
 
-    hamiltonian = load_hamiltonian()
-    nq = of.utils.count_qubits(hamiltonian)
-    print(f"There are {nq} qubits in the Hamiltonian and {len(hamiltonian.terms)} terms.")
-    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
-    qs = cirq.LineQubit.range(nq)
-    ham_mpo = tnc.pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
+    print("Loading and converting Hamiltonian to MPO")
+    if args.mpofile is not None:
+        hamiltonian = load_hamiltonian()
+        nq = of.utils.count_qubits(hamiltonian)
+        print(f"There are {nq} qubits in the Hamiltonian and {len(hamiltonian.terms)} terms.")
+        ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
+        qs = cirq.LineQubit.range(nq)
+        ham_mpo = tnc.pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
+    else:
+        ham_mpo = quimb.load_from_disk(args.mpofile)
+        nq = len(ham_mpo.tensors)
+        qs = cirq.LineQubit.range(nq)
     print("Finished converting to MPO.")
 
     # Add alpha * (N - N_occ)^2 to the Hamiltonian to ensure the occupation number.
     total_number = tnc.total_number_qubit_operator(nq)
     total_number_cirq = of.transforms.qubit_operator_to_pauli_sum(total_number)
     total_number_mpo = tnc.pauli_sum_to_mpo(total_number_cirq, qs, max_mpo_bond)
-    augmented_hamiltonian = hamiltonian + alpha * (total_number - n_fermions) ** 2
-    augmented_hamiltonian_cirq = of.transforms.qubit_operator_to_pauli_sum(augmented_hamiltonian)
-    augmented_hamiltonian_mpo = tnc.pauli_sum_to_mpo(augmented_hamiltonian_cirq, qs, max_mpo_bond)
+    # augmented_hamiltonian = hamiltonian + alpha * (total_number - n_fermions) ** 2
+    # augmented_hamiltonian_cirq = of.transforms.qubit_operator_to_pauli_sum(augmented_hamiltonian)
+    # augmented_hamiltonian_mpo = tnc.pauli_sum_to_mpo(augmented_hamiltonian_cirq, qs, max_mpo_bond)
+    augment_term = alpha * (total_number - n_fermions) ** 2
+    augment_term_cirq = of.transforms.qubit_operator_to_pauli_sum(augment_term)
+    augment_term_mpo = tnc.pauli_sum_to_mpo(augment_term_cirq, qs, max_mpo_bond)
+    augmented_hamiltonian_mpo = ham_mpo + augment_term_mpo
 
     dmrg = qtn.DMRG(augmented_hamiltonian_mpo, bond_dims=max_bond)
     converged = dmrg.solve()
