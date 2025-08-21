@@ -112,6 +112,7 @@ def main():
     print(f"Energy = {energy}, number = {number}")
     print("Cirq result:")
     print(f"Energy = {energy_cirq}, number = {number_cirq}")
+    print("Particle number:", number, number_cirq)
 
     f = h5py.File(args.output_filename, "w")
     f.create_dataset("ground_state", data=gs_vector)

@@ -1,14 +1,15 @@
 """Get ground state energy, energy gap, and reference state overlap for the water molecule."""
 
 import argparse
+import json
+import h5py
 import numpy as np
 import scipy.linalg as la
 from scipy.sparse.linalg import eigsh
-import h5py
 import openfermion as of
 import cirq
 from openfermion.functionals.get_one_norm_test import qubit_hamiltonian
-from krylov_common import neel_state_circuit, load_hubbard_hamiltonian
+from krylov_common import hf_ref_circuit, load_hubbard_hamiltonian
 
 def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
     """Get a qubit operator corresponding to N = sum_i a_i^ a_i.
@@ -24,17 +25,22 @@ def total_number_qubit_operator(norbitals: int) -> of.QubitOperator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("n", type=int, help="Dimension of square lattice.")
+    parser.add_argument("input_file", type=str, help="JSON file with input.")
     parser.add_argument("output_file", type=str, help="HDF5 output file.")
     args = parser.parse_args()
 
+    with open(args.input_file, "r") as f:
+        input_dict = json.load(f)
+
     # Build the Fermi-Hubbard Hamiltonian.
-    ham: of.QubitOperator = load_hubbard_hamiltonian(args.n)
+    ham: of.QubitOperator = load_hubbard_hamiltonian(
+        n=input_dict["l"], t=input_dict["t"], u=input_dict["u"]
+    )
     nq = of.count_qubits(ham)
     nterms = len(ham.terms)
     # Get a circuit and vector for the reference state.
-    #ref_circuit = hf_ref_circuit(nq, nq)
-    ref_circuit = neel_state_circuit(nq)
+    ref_circuit = hf_ref_circuit(nq, input_dict["n_occ"])
+    # ref_circuit = neel_state_circuit(nq)
     sim = cirq.Simulator()
     sim_result = sim.simulate(ref_circuit)
     ref_state = sim_result.final_state_vector
@@ -44,7 +50,7 @@ def main():
     number_operator_sparse = of.linalg.qubit_operator_sparse(number_operator)
     reference_number_expectation = np.vdot(ref_state, number_operator_sparse @ ref_state)
     regularizer = (number_operator - reference_number_expectation) ** 2
-    alpha = 10.0
+    alpha = input_dict["alpha"]
     ham_regularized = ham + alpha * regularizer
     # Use scipy to get eigenvectors of the number-regularized Hamiltonian.
     ham_sparse = of.linalg.qubit_operator_sparse(ham, n_qubits=nq)
@@ -59,7 +65,7 @@ def main():
     energies = np.zeros(2, dtype=complex)
     norm0 = np.vdot(eigenvectors[:, 0], eigenvectors[:, 0])
     energies[0] = np.vdot(eigenvectors[:, 0], ham_sparse @ eigenvectors[:, 0]) / norm0
-    exc_idx = 2
+    exc_idx = 3
     norm1 = np.vdot(eigenvectors[:, exc_idx], eigenvectors[:, exc_idx])
     energies[1] = np.vdot(eigenvectors[:, exc_idx], ham_sparse @ eigenvectors[:, exc_idx]) / norm1
     ref_norm = np.vdot(ref_state, ref_state)
@@ -76,7 +82,7 @@ def main():
     # Output to HDF5
     f = h5py.File(args.output_file, "w")
     nq_dset = f.create_dataset("nq", data=nq)
-    size_dataset = f.create_dataset("lattice_size", data=args.n)
+    size_dataset = f.create_dataset("lattice_size", data=input_dict["l"])
     nterms_dset = f.create_dataset("nterms", data=nterms)
     ref_state_dset = f.create_dataset("ref_state", data=ref_state)
     energies_dset = f.create_dataset("energies", data=energies)
