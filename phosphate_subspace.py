@@ -6,6 +6,7 @@ from mpi4py import MPI
 import h5py
 import numpy as np
 import scipy.linalg as la
+import quimb
 import cirq
 from cirq.contrib.qasm_import import circuit_from_qasm
 import qiskit
@@ -19,6 +20,7 @@ from kcommute import get_si_sets
 from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
 from convert import cirq_pauli_sum_to_qiskit_pauli_op
+from tensor_network_common import pauli_sum_to_mpo
 
 def main():
     parser = argparse.ArgumentParser()
@@ -37,17 +39,26 @@ def main():
     tau = input_dict["tau"]
     max_circuit_bond = input_dict["max_circuit_bond"]
     max_mpo_bond = input_dict["max_mpo_bond"]
-    threshold_tolerance: float = 1e-2
+    hamiltonian_mpo_filename = input_dict["mpo_filename"]
 
     comm = MPI.COMM_WORLD
     mpi_comm_rank = comm.Get_rank()
     mpi_comm_size = comm.Get_size()
 
-    ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
-    hamiltonian = of.transforms.jordan_wigner(ham_fermi)
-    hamiltonian.compress(abs_tol=threshold_tolerance)
-    nq = of.utils.count_qubits(hamiltonian)
-    qs = cirq.LineQubit.range(nq)
+    build_hamiltonian = False
+    if build_hamiltonian:
+        threshold_tolerance: float = 1e-2
+        ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
+        hamiltonian = of.transforms.jordan_wigner(ham_fermi)
+        hamiltonian.compress(abs_tol=threshold_tolerance)
+        ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
+        nq = of.utils.count_qubits(hamiltonian)
+        qs = cirq.LineQubit.range(nq)
+        ham_mpo = pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
+    else:
+        ham_mpo = quimb.load_from_disk(args.mpofile)
+        nq = len(ham_mpo.tensors)
+        qs = cirq.LineQubit.range(nq)
 
     print("Compiling circuits.")
     # Get the first-order Trotter circuit.
@@ -105,8 +116,8 @@ def main():
         # reference_mps = MatrixProductState.from_dense(ref_state)
         # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
         #                                  d_max, max_circuit_bond, max_mpo_bond)
-        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_transpiled, reference_mps,
-                                         d_max, max_circuit_bond, max_mpo_bond,
+        h, s = kc.tebd_subspace_matrices_parallel(ham_mpo, ev_ckt_transpiled, reference_mps,
+                                         d_max, max_circuit_bond,
                                          mpi_comm_rank, mpi_comm_size)
     # Write to file.
     if mpi_comm_rank == 0:

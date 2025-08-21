@@ -11,7 +11,7 @@ from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.qasm2 import dumps
 from qiskit_aer import AerSimulator
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductState
+from quimb.tensor.tensor_1d import MatrixProductState, MatrixProductOperator
 import convert
 from tensor_network_common import pauli_sum_to_mpo
 
@@ -57,10 +57,10 @@ def load_water_hamiltonian() -> of.QubitOperator:
     return of.transforms.jordan_wigner(fermi_hamiltonian)
 
 
-def load_hubbard_hamiltonian(n: int = 4) -> of.QubitOperator:
+def load_hubbard_hamiltonian(n: int = 4, t: float = 1.0, u: float = 2.0) -> of.QubitOperator:
     """Load a 2D Fermi-Hubbard Hamiltonian."""
 
-    ham_fermi = of.hamiltonians.fermi_hubbard(n, n, 1.0, 2.0, spinless=True)
+    ham_fermi = of.hamiltonians.fermi_hubbard(n, n, t, u, spinless=True)
     ham: of.QubitOperator = of.transforms.jordan_wigner(ham_fermi)
     return ham
 
@@ -324,12 +324,11 @@ def energy_vs_d(h, s, step:int = 1) -> Tuple[List[int], List[float]]:
 
 
 def tebd_matrix_element_and_overlap(
-    hamiltonian: cirq.PauliSum,
+    ham_mpo: MatrixProductOperator,
     evolution_circuit: qiskit.QuantumCircuit,
     reference_mps: MatrixProductState,
     d: int,
-    max_circuit_bond: int,
-    max_mpo_bond: int
+    max_circuit_bond: int
 ) -> Tuple[complex, complex]:
     """Compute <psi|HU^d|psi> and <psi|U^d|psi> using TEBD"""
 
@@ -347,12 +346,11 @@ def tebd_matrix_element_and_overlap(
         # circuit_mps = qtn.circuit.CircuitMPS(psi0=reference_mps, max_bond=max_circuit_bond)
         # circuit_mps.apply_gates(circuit_quimb.gates)
         circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
-            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=True  # TODO: Can we set backend here?
+            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False  # TODO: Can we set backend here?
         )
         evolved_mps = circuit_mps.psi
     # Build tensor networks for <psi| U^d |psi> and <psi| H U^d |psi>
     overlap = reference_mps.H @ evolved_mps
-    ham_mpo = pauli_sum_to_mpo(hamiltonian, hamiltonian.qubits, max_mpo_bond)
     mat_elem = reference_mps.H @ ham_mpo.apply(evolved_mps)
     return (mat_elem, overlap)
 
@@ -379,9 +377,9 @@ def tebd_subspace_matrices(
 
 
 def tebd_subspace_matrices_parallel(
-    hamiltonian: cirq.PauliSum, evolution_circuit: qiskit.QuantumCircuit,
+    ham_mpo: MatrixProductOperator, evolution_circuit: qiskit.QuantumCircuit,
     ref_state: MatrixProductState,
-    d_max: int, max_circuit_bond: int, max_mpo_bond: int,
+    d_max: int, max_circuit_bond: int,
     mpi_comm_rank: int, mpi_comm_size: int
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Comopute subspace matrices with TEBD."""
@@ -395,8 +393,8 @@ def tebd_subspace_matrices_parallel(
     comm = MPI.COMM_WORLD
     my_d = comm.scatter(all_d_vals, root=0)
     mat_elem, overlap = tebd_matrix_element_and_overlap(
-        hamiltonian, evolution_circuit, ref_state, my_d,
-        max_circuit_bond, max_mpo_bond
+        ham_mpo, evolution_circuit, ref_state, my_d,
+        max_circuit_bond
     )
     print(mpi_comm_rank, mat_elem, overlap)
     # Build a list of all the calculated matrix elements.

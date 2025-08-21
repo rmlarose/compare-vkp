@@ -17,6 +17,7 @@ from kcommute import get_si_sets
 from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
 from convert import cirq_pauli_sum_to_qiskit_pauli_op
+from tensor_network_common import pauli_sum_to_mpo
 
 def randomly_perturb_state(ref_state: np.ndarray, ratio: float) -> np.ndarray:
     """Add a random ket |r> to the reference state |phi>, giving the superposition
@@ -78,6 +79,7 @@ def main():
     #hamiltonian = kc.load_water_hamiltonian()
     ham_fermi = of.hamiltonians.fermi_hubbard(l, l, t, u, spinless=True)
     hamiltonian = of.transforms.jordan_wigner(ham_fermi)
+    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     nq = of.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
 
@@ -130,10 +132,11 @@ def main():
         h, s = kc.subspace_matrices_from_ref_state(hamiltonian, ref_state, ev_ckt_qiskit, d_max)
     else:
         reference_mps = MatrixProductState.from_dense(ref_state)
+        ham_mpo = pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
         # h, s = kc.tebd_subspace_matrices(ham_paulisum, ev_ckt_qiskit, reference_mps,
         #                                  d_max, max_circuit_bond, max_mpo_bond)
-        h, s = kc.tebd_subspace_matrices_parallel(ham_paulisum, ev_ckt_qiskit, reference_mps,
-                                         d_max, max_circuit_bond, max_mpo_bond,
+        h, s = kc.tebd_subspace_matrices_parallel(ham_mpo, ev_ckt_qiskit, reference_mps,
+                                         d_max, max_circuit_bond,
                                          mpi_comm_rank, mpi_comm_size)
     if mpi_comm_rank == 0:
         # Write to file.
