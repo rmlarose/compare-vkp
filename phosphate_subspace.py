@@ -45,20 +45,16 @@ def main():
     mpi_comm_rank = comm.Get_rank()
     mpi_comm_size = comm.Get_size()
 
-    build_hamiltonian = False
-    if build_hamiltonian:
-        threshold_tolerance: float = 1e-2
-        ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
-        hamiltonian = of.transforms.jordan_wigner(ham_fermi)
-        hamiltonian.compress(abs_tol=threshold_tolerance)
-        ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
-        nq = of.utils.count_qubits(hamiltonian)
-        qs = cirq.LineQubit.range(nq)
-        ham_mpo = pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
-    else:
-        ham_mpo = quimb.load_from_disk(args.mpofile)
-        nq = len(ham_mpo.tensors)
-        qs = cirq.LineQubit.range(nq)
+    threshold_tolerance: float = 1e-2
+    ham_fermi = of.utils.load_operator(file_name=args.hamiltonian_file, data_directory=args.hamiltonian_directory)
+    hamiltonian = of.transforms.jordan_wigner(ham_fermi)
+    hamiltonian.compress(abs_tol=threshold_tolerance)
+    ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
+    nq = of.utils.count_qubits(hamiltonian)
+    qs = cirq.LineQubit.range(nq)
+    ham_mpo = quimb.load_from_disk(args.mpofile)
+    nq = len(ham_mpo.tensors)
+    qs = cirq.LineQubit.range(nq)
 
     print("Compiling circuits.")
     # Get the first-order Trotter circuit.
