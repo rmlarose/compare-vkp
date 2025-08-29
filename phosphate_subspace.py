@@ -52,7 +52,7 @@ def main():
     ham_cirq = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     nq = of.utils.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
-    ham_mpo = quimb.load_from_disk(args.mpofile)
+    ham_mpo = quimb.load_from_disk(hamiltonian_mpo_filename)
     nq = len(ham_mpo.tensors)
     qs = cirq.LineQubit.range(nq)
 
