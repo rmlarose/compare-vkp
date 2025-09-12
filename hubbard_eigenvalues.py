@@ -6,19 +6,25 @@ import numpy as np
 import scipy.linalg as la
 import pandas as pd
 
-def threshold_eigenvalues(h: np.ndarray, s: np.ndarray, eps: float) -> Tuple[np.ndarray, np.ndarray]:
+def threshold_eigenvalues(h: np.ndarray, s: np.ndarray, eps: float, verbose: bool=False) -> Tuple[np.ndarray, np.ndarray]:
     """Remove all eigenvalues below a positive threshold eps.
     See Epperly et al. sec. 1.2."""
 
     # Build a matrix whose columns correspond to the positive eigenvectors of s.
     evals, evecs = la.eigh(s)
+    if verbose:
+        print("All eigenvalues of S:", evals)
     positive_evals = []
     positive_evecs = []
+    num_kept = 0
     for i, ev in enumerate(evals):
         assert abs(ev.imag) < 1e-7
         if ev.real > eps:
             positive_evals.append(ev.real)
             positive_evecs.append(evecs[:, i])
+            num_kept += 1
+    if verbose:
+        print(f"Kept {num_kept} eigenvalues out of {len(evals)}.")
     pos_evec_mat = np.vstack(positive_evecs).T
     # Project h and s into this subspace.
     new_s =  pos_evec_mat.conj().T @ s @ pos_evec_mat
