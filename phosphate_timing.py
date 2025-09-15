@@ -14,6 +14,7 @@ import openfermion as of
 import qiskit
 from qiskit import qpy
 from qiskit.qasm2 import dumps
+import quimb
 from quimb.tensor.tensor_1d import MatrixProductState
 from quimb.tensor.circuit import CircuitMPS
 from kcommute import get_si_sets
@@ -64,13 +65,14 @@ assert len(reference_mps.tensor_map) == nq
 
 max_circuit_bond = 64
 max_mpo_bond = 80
-d = 1
+ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
+d = 2
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
 contract_start_time = process_time_ns()
 kc.tebd_matrix_element_and_overlap(
-    ham_paulisum, transpiled_circuit, reference_mps,
-    d, max_circuit_bond, max_mpo_bond
+    ham_mpo, transpiled_circuit, reference_mps,
+    d, max_circuit_bond
 )
 contract_end_time = process_time_ns()
 contract_elapsed_time = contract_end_time - contract_start_time
