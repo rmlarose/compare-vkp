@@ -1,26 +1,19 @@
-from typing import List
-import argparse
 from time import process_time_ns
-import pickle
-import json
-from mpi4py import MPI
-import h5py
 import numpy as np
 import scipy.linalg as la
+import torch
 import cirq
-from cirq.contrib.qasm_import import circuit_from_qasm
 import qiskit
 import openfermion as of
 import qiskit
-from qiskit import qpy
 from qiskit.qasm2 import dumps
 import quimb
-from quimb.tensor.tensor_1d import MatrixProductState
 from quimb.tensor.circuit import CircuitMPS
-from kcommute import get_si_sets
-from trotter_circuit import trotter_multistep_from_groups
 import krylov_common as kc
 from convert import cirq_pauli_sum_to_qiskit_pauli_op
+
+def to_torch(x):
+    return torch.tensor(x, dtype=torch.complex64, device="cuda")
 
 tau = 1e-1
 steps = 1
@@ -66,13 +59,13 @@ assert len(reference_mps.tensor_map) == nq
 max_circuit_bond = 64
 max_mpo_bond = 80
 ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
-d = 2
+d = 1
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
 contract_start_time = process_time_ns()
 kc.tebd_matrix_element_and_overlap(
     ham_mpo, transpiled_circuit, reference_mps,
-    d, max_circuit_bond
+    d, max_circuit_bond, to_torch
 )
 contract_end_time = process_time_ns()
 contract_elapsed_time = contract_end_time - contract_start_time

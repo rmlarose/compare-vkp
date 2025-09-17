@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from mpi4py import MPI
 import numpy as np
 import scipy.linalg as la
+import torch
 import cirq
 import qsimcirq
 import openfermion as of
@@ -328,7 +329,8 @@ def tebd_matrix_element_and_overlap(
     evolution_circuit: qiskit.QuantumCircuit,
     reference_mps: MatrixProductState,
     d: int,
-    max_circuit_bond: int
+    max_circuit_bond: int,
+    backend_callback
 ) -> Tuple[complex, complex]:
     """Compute <psi|HU^d|psi> and <psi|U^d|psi> using TEBD"""
 
@@ -346,7 +348,8 @@ def tebd_matrix_element_and_overlap(
         # circuit_mps = qtn.circuit.CircuitMPS(psi0=reference_mps, max_bond=max_circuit_bond)
         # circuit_mps.apply_gates(circuit_quimb.gates)
         circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
-            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False  # TODO: Can we set backend here?
+            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False,
+            to_backend=backend_callback
         )
         evolved_mps = circuit_mps.psi
     # Build tensor networks for <psi| U^d |psi> and <psi| H U^d |psi>
