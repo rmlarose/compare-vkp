@@ -54,11 +54,15 @@ for i in range(nq):
 ref_circuit_qasm = dumps(reference_circuit)
 quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
 reference_mps = quimb_circuit.psi
+for tensor in reference_mps.tensors:
+    tensor.modify(apply=lambda x: to_torch(x))
 assert len(reference_mps.tensor_map) == nq
 
 max_circuit_bond = 64
 max_mpo_bond = 80
 ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
+for tensor in ham_mpo.tensors:
+    tensor.modify(apply=lambda x: to_torch(x))
 d = 1
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
