@@ -1,3 +1,5 @@
+import argparse
+import json
 from time import process_time_ns
 import numpy as np
 import scipy.linalg as la
@@ -14,6 +16,12 @@ from convert import cirq_pauli_sum_to_qiskit_pauli_op
 
 def to_torch(x):
     return torch.tensor(x, dtype=torch.complex64, device="cuda")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("d", type=int, help="Number of steps to do.")
+parser.add_argument("circuit_bond", type=int, help="Bond dimension for circuit simulation.")
+parser.add_arguement("output_filename", type=str, help="JSON file for output.")
+args = parser.parse_args()
 
 tau = 1e-1
 steps = 1
@@ -58,12 +66,12 @@ for tensor in reference_mps.tensors:
     tensor.modify(apply=lambda x: to_torch(x))
 assert len(reference_mps.tensor_map) == nq
 
-max_circuit_bond = 64
+max_circuit_bond = args.circuit_bond
 max_mpo_bond = 80
 ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
 for tensor in ham_mpo.tensors:
     tensor.modify(apply=lambda x: to_torch(x))
-d = 1
+d = args.d
 print("Computing overlap and matrix element.")
 print(f"d = {d} Max circuit bond dim = {max_circuit_bond} Max MPO bond = {max_mpo_bond}")
 contract_start_time = process_time_ns()
@@ -74,3 +82,13 @@ kc.tebd_matrix_element_and_overlap(
 contract_end_time = process_time_ns()
 contract_elapsed_time = contract_end_time - contract_start_time
 print(f"Time to contract {contract_elapsed_time:1.6e}")
+
+output_dict = {
+    "d": d,
+    "circuit_bond": max_circuit_bond,
+    "compile_time": compile_elapsed_time,
+    "contract_time": contract_elapsed_time
+}
+
+with open(args.output_file, "w") as f:
+    json.dump(output_dict, f)
