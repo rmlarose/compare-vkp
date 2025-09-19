@@ -10,7 +10,8 @@ from qiskit.qasm2 import dumps
 import quimb
 from quimb.tensor.circuit import CircuitMPS
 import krylov_common as kc
-from convert import cirq_pauli_sum_to_qiskit_pauli_op
+from convert import cirq_pauli_sum_to_qiskit_pauli_op, 
+from tensor_network_common import pauli_sum_to_mpo
 
 def to_torch(x):
     # We use 'mps' for the Macbook. Use 'cuda' for HPCC.
@@ -57,7 +58,9 @@ def main():
 
     max_circuit_bond = 64
     max_mpo_bond = 80
+    ham_mpo = pauli_sum_to_mpo(ham_cirq, qs, max_mpo_bond)
     ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
+
     for tensor in ham_mpo.tensors:
         tensor.modify(apply=lambda x: to_torch(x))
     d = 1
