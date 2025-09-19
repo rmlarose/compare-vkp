@@ -347,10 +347,15 @@ def tebd_matrix_element_and_overlap(
         # circuit_quimb = qtn.circuit.Circuit(psi0=reference_mps).from_qasm(qasm_str)
         # circuit_mps = qtn.circuit.CircuitMPS(psi0=reference_mps, max_bond=max_circuit_bond)
         # circuit_mps.apply_gates(circuit_quimb.gates)
-        circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
-            qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False,
-            to_backend=backend_callback
-        )
+        if backend_callback is not None:
+            circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
+                qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False,
+                to_backend=backend_callback
+            )
+        else:
+            circuit_mps = qtn.circuit.CircuitMPS.from_openqasm2_str(
+                qasm_str, psi0=reference_mps, max_bond=max_circuit_bond, progbar=False
+            )
         evolved_mps = circuit_mps.psi
     # Build tensor networks for <psi| U^d |psi> and <psi| H U^d |psi>
     overlap = reference_mps.H @ evolved_mps
