@@ -27,7 +27,7 @@ with open(args.input_filename) as f:
 
 tau = input_dict["tau"]
 steps = input_dict["steps"]
-d = input_dict["d"]
+d_vals = input_dict["d"]
 max_circuit_bond = input_dict["max_circuit_bond"]
 
 n_occ = 32
@@ -70,15 +70,21 @@ assert len(reference_mps.tensor_map) == nq
 ham_mpo = quimb.load_from_disk("phosphate_mpo_chi597.data")
 for tensor in ham_mpo.tensors:
     tensor.modify(apply=lambda x: to_torch(x))
-mat_elem, overlap = kc.tebd_matrix_element_and_overlap(
-    ham_mpo, transpiled_circuit, reference_mps,
-    d, max_circuit_bond, to_torch
-)
+mat_elems = []
+overlaps = []
+for d in d_vals:
+    mat_elem, overlap = kc.tebd_matrix_element_and_overlap(
+        ham_mpo, transpiled_circuit, reference_mps,
+        d, max_circuit_bond, to_torch
+    )
+    mat_elems.append(mat_elem)
+    overlaps.append(overlap)
 
 output_dict = {
     "input": input_dict,
-    "mat_elem": mat_elem,
-    "overlap": overlap
+    "d_values": d_vals,
+    "mat_elem": mat_elems,
+    "overlap": overlaps
 }
 
 with open(args.output_file, "w") as f:
