@@ -19,7 +19,7 @@ def to_torch(x, device_name: str="cuda"):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("input_filename", type=str, help="JSON file for input.")
-parser.add_arguement("output_filename", type=str, help="JSON file for output.")
+parser.add_argument("output_filename", type=str, help="JSON file for output.")
 args = parser.parse_args()
 
 with open(args.input_filename) as f:
