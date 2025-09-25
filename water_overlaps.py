@@ -37,7 +37,7 @@ def main():
         input_dict = json.load(f)
     n_occ = input_dict["n_occ"] # Number of occupied orbitals.
     steps = input_dict["steps"]
-    d = input_dict["d"]
+    d_vals = input_dict["d"]
     tau = input_dict["tau"]
     max_circuit_bond = input_dict["max_circuit_bond"]
     max_mpo_bond = input_dict["max_mpo_bond"]
@@ -110,16 +110,22 @@ def main():
     ev_ckt_transpiled = qiskit.transpile(ev_ckt_qiskit, basis_gates=["u3", "cx"])
     print(f"Transpiled circuit has depth {ev_ckt_transpiled.depth()}")
 
-    # Compute the subspace matrices.
-    mat_elem, overlap = kc.tebd_matrix_element_and_overlap(
-        ham_mpo, ev_ckt_transpiled, reference_mps,
-        d, max_circuit_bond, to_torch
-    )
+    mat_elems = []
+    overlaps = []
+    for d in d_vals:
+        # Compute the subspace matrices.
+        mat_elem, overlap = kc.tebd_matrix_element_and_overlap(
+            ham_mpo, ev_ckt_transpiled, reference_mps,
+            d, max_circuit_bond, to_torch
+        )
+        mat_elems.append(mat_elem)
+        overlaps.append(overlap)
 
     output_dict = {
         "input": input_dict,
-        "overlap": overlap,
-        "mat_elem": mat_elem,
+        "d": d_vals,
+        "overlaps": overlaps,
+        "mat_elems": mat_elems,
     }
     
     with open(args.output_file, "w") as f:
