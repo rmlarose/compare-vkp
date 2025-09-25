@@ -113,6 +113,7 @@ def main():
     mat_elems = []
     overlaps = []
     for d in d_vals:
+        print(f"on d = {d}.")
         # Compute the subspace matrices.
         mat_elem, overlap = kc.tebd_matrix_element_and_overlap(
             ham_mpo, ev_ckt_transpiled, reference_mps,
