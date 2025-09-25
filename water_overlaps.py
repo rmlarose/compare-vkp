@@ -130,3 +130,6 @@ def main():
     
     with open(args.output_file, "w") as f:
         json.dump(output_dict, f)
+
+if __name__ == "__main__":
+    main()
