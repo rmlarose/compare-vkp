@@ -62,6 +62,8 @@ def main():
     nq = of.utils.count_qubits(hamiltonian)
     qs = cirq.LineQubit.range(nq)
     ham_mpo = quimb.load_from_disk(hamiltonian_mpo_filename)
+    for tensor in ham_mpo.tensors:
+        tensor.modify(apply=lambda x: to_torch(x))
     nq = len(ham_mpo.tensors)
     qs = cirq.LineQubit.range(nq)
 
@@ -105,6 +107,8 @@ def main():
     ref_circuit_qasm = dumps(reference_circuit)
     quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
     reference_mps = quimb_circuit.psi
+    for tensor in reference_mps.tensors:
+        tensor.modify(apply=lambda x: to_torch(x))
     assert len(reference_mps.tensor_map) == nq
 
     print(f"Untranspiled circuit has depth {ev_ckt_qiskit.depth()}")
