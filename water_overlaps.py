@@ -131,11 +131,14 @@ def main():
     contract_elapsed_time = contract_end_time - contract_start_time
     print(f"Contraction elapsed time = {contract_elapsed_time}")
 
+    # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
+    overlap_data = [t.data.tolist() for t in overlaps]
+    mat_elem_data = [t.data.tolist() for t in mat_elems]
     output_dict = {
         "input": input_dict,
         "d": d_vals,
-        "overlaps": overlaps,
-        "mat_elems": mat_elems,
+        "overlaps": overlap_data,
+        "mat_elems": mat_elem_data,
     }
     
     with open(args.output_file, "w") as f:
