@@ -1,4 +1,5 @@
 from typing import List
+from time import perf_counter_ns
 import argparse
 import pickle
 import json
@@ -112,6 +113,7 @@ def main():
 
     mat_elems = []
     overlaps = []
+    contract_start_time = perf_counter_ns()
     for d in d_vals:
         print(f"on d = {d}.")
         # Compute the subspace matrices.
@@ -121,6 +123,9 @@ def main():
         )
         mat_elems.append(mat_elem)
         overlaps.append(overlap)
+    contract_end_time = perf_counter_ns()
+    contract_elapsed_time = contract_end_time - contract_start_time
+    print(f"Contraction elapsed time = {contract_elapsed_time}")
 
     output_dict = {
         "input": input_dict,
