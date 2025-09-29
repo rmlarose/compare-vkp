@@ -129,16 +129,21 @@ def main():
         overlaps.append(overlap)
     contract_end_time = perf_counter_ns()
     contract_elapsed_time = contract_end_time - contract_start_time
-    print(f"Contraction elapsed time = {contract_elapsed_time}")
+    print(f"Contraction elapsed time = {contract_elapsed_time:1.4e}")
 
     # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
-    overlap_data = [t.data.tolist() for t in overlaps]
-    mat_elem_data = [t.data.tolist() for t in mat_elems]
+    overlap_data_real = [t.data.tolist().real for t in overlaps]
+    overlap_data_imag = [t.data.tolist().imag for t in overlaps]
+    mat_elem_data_real = [t.data.tolist().real for t in mat_elems]
+    mat_elem_data_imag = [t.data.tolist().imag for t in mat_elems]
     output_dict = {
         "input": input_dict,
         "d": d_vals,
-        "overlaps": overlap_data,
-        "mat_elems": mat_elem_data,
+        "contraction_time": contract_elapsed_time,
+        "overlaps_real": overlap_data_real,
+        "overlaps_imag": overlap_data_imag,
+        "mat_elems_real": mat_elem_data_real,
+        "mat_elems_imag": mat_elem_data_imag
     }
     
     with open(args.output_file, "w") as f:
