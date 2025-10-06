@@ -131,23 +131,36 @@ def main():
     contract_elapsed_time = contract_end_time - contract_start_time
     print(f"Contraction elapsed time = {contract_elapsed_time:1.4e}")
 
-    # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
-    overlap_data_real = [t.data.tolist().real for t in overlaps]
-    overlap_data_imag = [t.data.tolist().imag for t in overlaps]
-    mat_elem_data_real = [t.data.tolist().real for t in mat_elems]
-    mat_elem_data_imag = [t.data.tolist().imag for t in mat_elems]
-    output_dict = {
-        "input": input_dict,
-        "d": d_vals,
-        "contraction_time": contract_elapsed_time,
-        "overlaps_real": overlap_data_real,
-        "overlaps_imag": overlap_data_imag,
-        "mat_elems_real": mat_elem_data_real,
-        "mat_elems_imag": mat_elem_data_imag
-    }
+    # # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
+    # overlap_data_real = [t.data.tolist().real for t in overlaps]
+    # overlap_data_imag = [t.data.tolist().imag for t in overlaps]
+    # mat_elem_data_real = [t.data.tolist().real for t in mat_elems]
+    # mat_elem_data_imag = [t.data.tolist().imag for t in mat_elems]
+    # output_dict = {
+    #     "input": input_dict,
+    #     "d": d_vals,
+    #     "contraction_time": contract_elapsed_time,
+    #     "overlaps_real": overlap_data_real,
+    #     "overlaps_imag": overlap_data_imag,
+    #     "mat_elems_real": mat_elem_data_real,
+    #     "mat_elems_imag": mat_elem_data_imag
+    # }
     
-    with open(args.output_file, "w") as f:
-        json.dump(output_dict, f)
+    # with open(args.output_file, "w") as f:
+    #     json.dump(output_dict, f)
+
+    f = h5py.File(args.output_file, "w")
+    f.create_dataset("n_occ", data=n_occ)
+    f.create_dataset("steps", data=steps)
+    f.create_dataset("d_vals", data=np.array(d_vals))
+    f.create_dataset("tau", data=tau)
+    f.create_dataset("max_circuit_bond", data=max_circuit_bond)
+    f.create_dataset("max_mpo_bond", data=max_mpo_bond)
+    f.create_dataset("mpo_filename", data=hamiltonian_mpo_filename)
+    f.create_dataset("hamiltonian_file", data=hamiltonian_file)
+    f.create_dataaset("overlaps", data=np.array(overlaps))
+    f.create_dataaset("mat_elems", data=np.array(mat_elems))
+    f.close()
 
 if __name__ == "__main__":
     main()
