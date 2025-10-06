@@ -131,8 +131,8 @@ def main():
     contract_elapsed_time = contract_end_time - contract_start_time
     print(f"Contraction elapsed time = {contract_elapsed_time:1.4e}")
 
-    overlaps_cpu = [t.cpu().nump().tolist() for t in overlaps]
-    mat_elems_cpu = [t.cpu().nump().tolist() for t in mat_elems]
+    overlaps_cpu = [t.cpu().numpy().tolist() for t in overlaps]
+    mat_elems_cpu = [t.cpu().numpy().tolist() for t in mat_elems]
 
     # # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
     # overlap_data_real = [t.data.tolist().real for t in overlaps]
