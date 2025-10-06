@@ -131,6 +131,9 @@ def main():
     contract_elapsed_time = contract_end_time - contract_start_time
     print(f"Contraction elapsed time = {contract_elapsed_time:1.4e}")
 
+    overlaps_cpu = [t.cpu().nump().tolist() for t in overlaps]
+    mat_elems_cpu = [t.cpu().nump().tolist() for t in mat_elems]
+
     # # TODO There are Torch tensors in overlaps and mat_elems. Make them serializable.
     # overlap_data_real = [t.data.tolist().real for t in overlaps]
     # overlap_data_imag = [t.data.tolist().imag for t in overlaps]
@@ -158,8 +161,8 @@ def main():
     f.create_dataset("max_mpo_bond", data=max_mpo_bond)
     f.create_dataset("mpo_filename", data=hamiltonian_mpo_filename)
     f.create_dataset("hamiltonian_file", data=hamiltonian_file)
-    f.create_dataset("overlaps", data=np.array(overlaps))
-    f.create_dataset("mat_elems", data=np.array(mat_elems))
+    f.create_dataset("overlaps", data=np.array(overlaps_cpu))
+    f.create_dataset("mat_elems", data=np.array(mat_elems_cpu))
     f.close()
 
 if __name__ == "__main__":
