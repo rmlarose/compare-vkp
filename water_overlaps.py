@@ -158,8 +158,8 @@ def main():
     f.create_dataset("max_mpo_bond", data=max_mpo_bond)
     f.create_dataset("mpo_filename", data=hamiltonian_mpo_filename)
     f.create_dataset("hamiltonian_file", data=hamiltonian_file)
-    f.create_dataaset("overlaps", data=np.array(overlaps))
-    f.create_dataaset("mat_elems", data=np.array(mat_elems))
+    f.create_dataset("overlaps", data=np.array(overlaps))
+    f.create_dataset("mat_elems", data=np.array(mat_elems))
     f.close()
 
 if __name__ == "__main__":
