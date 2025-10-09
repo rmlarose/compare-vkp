@@ -51,8 +51,8 @@ def main():
     h = np.array(f.get("h"))
     s = np.array(f.get("s"))
     # Save these values to copy
-    tau_input = f["tau"][()]
-    steps_input = f["steps"][()]
+    # tau_input = f["tau"][()]
+    # steps_input = f["steps"][()]
     f.close()
     # assert la.ishermitian(h)
     # assert la.ishermitian(s)
@@ -71,8 +71,8 @@ def main():
 
     # Output to HDF5 file.
     f_out = h5py.File(args.output_file, "w")
-    f_out.create_dataset("tau", data=tau_input)
-    f_out.create_dataset("steps", data=steps_input)
+    # f_out.create_dataset("tau", data=tau_input)
+    # f_out.create_dataset("steps", data=steps_input)
     f_out.create_dataset("eps", data=eps)
     f_out.close()
     df = pd.DataFrame.from_records(results, columns=["d", "eps", "energy", "num_pos"])
