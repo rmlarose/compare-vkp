@@ -1,10 +1,15 @@
 from typing import Dict
+import argparse
 import os
 import numpy as np
 import h5py
 from krylov_common import fill_subspace_matrices
 
-data_dir = "water_data_new"
+parser = argparse.ArgumentParser()
+parser.add_argument("data_dir", type=str, help="Directory containing output files. They must have 'output' in the filename.")
+args = parser.parse_args()
+
+data_dir = args.data_dir
 output_files = [f for f in os.listdir(data_dir) if 'output' in f]
 
 idx_to_overlaps: Dict[int, complex] = {}
