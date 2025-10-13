@@ -90,6 +90,7 @@ def main():
     number_exp_dset = f.create_dataset("number_expectation", data=number_expectation)
     ref_num_dset = f.create_dataset("reference_number_expectation", data=reference_number_expectation)
     ref_energy_dset = f.create_dataset("reference_energy", data=ref_energy)
+    ground_dset = f.create_dataset("ground_state", data=eigenvectors[:, 0])
     f.close()
 
 if __name__ == "__main__":
