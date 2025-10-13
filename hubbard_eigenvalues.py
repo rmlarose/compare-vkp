@@ -58,7 +58,7 @@ def main():
     # assert la.ishermitian(s)
     # Get ground state energies for various subspace dimensions and thresholds.
     results: List[Tuple[int, float, float, float]] = []
-    for d in range(3, h.shape[0]+1):
+    for d in range(1, h.shape[0]+1):
         # Get the top d * d blocks of h and s.
         h_d = h[:d, :d]
         s_d = s[:d, :d]
