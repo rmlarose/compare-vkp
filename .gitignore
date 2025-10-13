@@ -183,3 +183,6 @@ phosphate_dmrg_data/
 phosphate_dmrg_data_old/
 phosphate_dmrg_data_old2/
 *.data
+
+h2_scratch/
+hubbard_scratch/
