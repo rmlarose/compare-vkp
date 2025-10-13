@@ -51,3 +51,16 @@ For the phosphate, I am currently using `phsophate_overlaps.py`. An example inpu
 }
 ```
 The output is the same as for `water_overlaps.py`.
+
+There is also a non-Toeplitz script for water (`water_non_toeplitz.py`). There are two arguments: `input_file` is a JSON file with the parameters, and `output_file` is an HDF5 file with the subspace matrices. The output file can be passed to `hubbard_eigenvalues.py` (along with a separate JSON file containing d and eps). An example input file is as follows:
+```
+{
+    "hamiltonian_file": "monomer_eqb.hdf5",
+    "hamiltonian_mpo_file": "water_mpo.data",
+    "tau": 0.1,
+    "d": 20,
+    "steps": 10,
+    "n_elec": 10,
+    "max_circuit_bond": 200
+}
+```

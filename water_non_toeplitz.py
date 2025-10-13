@@ -44,11 +44,10 @@ def main():
     ham_mpo = quimb.load_from_disk(hamiltonian_mpo_filename)
     for tensor in ham_mpo.tensors:
         tensor.modify(apply=lambda x: to_torch(x))
-    for tensor in ham_mpo.tensors:
-        tensor.modify(apply=lambda x: to_torch(x))
     nq = len(ham_mpo.tensors)
     qs = cirq.LineQubit.range(nq)
 
+    # TODO Use LieTrotter (https://quantum.cloud.ibm.com/docs/en/api/qiskit/qiskit.synthesis.LieTrotter)
     ham_paulisum = of.transforms.qubit_operator_to_pauli_sum(hamiltonian)
     ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(ham_paulisum)
     dt = tau / float(steps)
