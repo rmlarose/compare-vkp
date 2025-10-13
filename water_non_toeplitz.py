@@ -19,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="JSON input file with parameters.")
     parser.add_argument("output_file", type=str, help="HDF5 file for subspace matrix output.")
+    parser.add_argument("scratch_dir", type=str, help="Directory to store scratch data.")
     args = parser.parse_args()
 
     with open(args.input_file, "r") as f:
