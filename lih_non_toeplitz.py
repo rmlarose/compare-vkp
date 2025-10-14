@@ -7,9 +7,13 @@ from openfermionpyscf import run_pyscf
 import qiskit
 from qiskit.qasm2 import dumps
 from quimb.tensor.circuit import CircuitMPS
+import torch
 from krylov_common import tebd_states_to_scratch, fill_subspace_matrices_from_fname_dict
 from tensor_network_common import pauli_sum_to_mpo
 from convert import cirq_pauli_sum_to_qiskit_pauli_op
+
+def to_torch(x, device_name: str="cuda"):
+    return torch.tensor(x, dtype=torch.complex64, device=device_name)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -46,6 +50,8 @@ def main():
     nq = len(qs)
     print(f"Model has {nq} qubits.")
     hamiltonian_mpo = pauli_sum_to_mpo(hamiltonian_psum, qs, mpo_max_bond)
+    for tensor in hamiltonian_mpo.tensors:
+        tensor.modify(apply=lambda x: to_torch(x))
     ham_qiskit = cirq_pauli_sum_to_qiskit_pauli_op(hamiltonian_psum)
 
     dt = tau / float(steps)
@@ -62,11 +68,13 @@ def main():
     ref_circuit_qasm = dumps(reference_circuit)
     quimb_circuit = CircuitMPS.from_openqasm2_str(ref_circuit_qasm)
     reference_mps = quimb_circuit.psi
+    for tensor in reference_mps.tensors:
+        tensor.modify(apply=lambda x: to_torch(x))
 
     scratch_dir = "lih_scratch"
     fname_dict = tebd_states_to_scratch(
         ev_circuit_transpiled, reference_mps, max_circuit_bond,
-        d, args.scratch_dir, None
+        d, args.scratch_dir, to_torch
     )
     h, s = fill_subspace_matrices_from_fname_dict(fname_dict, hamiltonian_mpo, d)
 
