@@ -30,7 +30,10 @@ def hybrid_input_output(
         f = fft.ifft2(F)
         f_tilde = abs_f * np.exp(1j * np.angle(f))
         if i != 0:
-            deltas.append(la.norm(f_tilde - f_tilde_old))
+            delta = la.norm(f_tilde - f_tilde_old)
+            if i % 10 == 0:
+                print(f"delta = {delta:4.5e}")
+            deltas.append(delta)
         F_tilde = np.real(fft.fft2(f_tilde))
         new_F = np.zeros(F_tilde.shape, dtype=complex)
         for k in range(F_tilde.shape[0]):
@@ -40,6 +43,7 @@ def hybrid_input_output(
                 else:
                     new_F[k, m] = F_tilde[k, m]
         f_tilde_old = f_tilde.copy()
+        F = new_F.copy()
     return (f_tilde, np.array(deltas))
 
 
@@ -71,13 +75,16 @@ def main():
     abs_f = np.abs(f)
     F_real = fft.fft2(f)
     F = F_real.copy() + 1e-2 * np.random.rand(*F_real.shape)
+    # F = np.random.rand(*F_real.shape)
     beta = 0.1
-    L = 100
+    L = 1000
     f_hio, deltas = hybrid_input_output(abs_f, beta, L, F)
+    F_hio = fft.fft2(f_hio)
     
     fp = h5py.File("data/phases.hdf5", "w")
     fp.create_dataset("amplitudes", data=f)
     fp.create_dataset("F_real", data=F_real)
+    fp.create_dataset("F_hio", data=F_hio)
     fp.create_dataset("amplitudes_hio", data=f_hio)
     fp.create_dataset("delta", data=deltas)
     fp.close()
