@@ -33,10 +33,12 @@ def pauli_string_to_mpo(pstring: cirq.PauliString, qs: List[cirq.Qid]) -> Matrix
     return pstring.coefficient * MatrixProductOperator(tensors, shape="ludr")
 
 
-def pauli_sum_to_mpo(psum: cirq.PauliSum, qs: List[cirq.Qid], max_bond: int) -> MatrixProductOperator:
+def pauli_sum_to_mpo(psum: cirq.PauliSum, qs: List[cirq.Qid], max_bond: int, verbose: bool = False) -> MatrixProductOperator:
     """Convert a Pauli sum to an MPO."""
-
+    nterms = len(psum)
     for i, p in enumerate(psum):
+        if verbose:
+            print(f"Status: On term {i + 1} / {nterms}", end="\r")
         if i == 0:
             mpo = pauli_string_to_mpo(p, qs)
         else:
