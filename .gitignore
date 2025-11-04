@@ -168,3 +168,6 @@ lih_scratch_hpcc/
 lih_scratch_new/
 old/
 tfim_scratch/
+
+# We want to keep data/alpha.csv in the repo because it is used to produce the plot.
+!data/alpha.csv
