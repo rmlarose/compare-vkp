@@ -3,4 +3,4 @@ name,steps,dimension,alpha
 "Hubbard 3x3",1,5,180.0
 "Hubbard 4x3",2,10,240.0
 "hchain 2",8,5,0.2105
-"hchain 4",
+"hchain 4",16,60,11.927
