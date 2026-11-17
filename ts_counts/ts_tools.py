@@ -244,20 +244,26 @@ _PAULI = {
 }
 
 
-def pauli_expectation(psi_arrays: List[np.ndarray], term: PauliTerm) -> complex:
-    """<psi|P|psi> for a single Pauli string."""
+def pauli_expectation(psi_arrays: List[np.ndarray], term: PauliTerm, right_canonical: bool = False) -> complex:
+    """<psi|P|psi> for a single Pauli string.
+
+    If `right_canonical` is True, psi_arrays must be in right-canonical form;
+    the contraction then stops at the last non-identity site (the rest of the
+    chain contracts to the identity), which roughly halves the cost."""
     ops = dict(term)
-    E = np.ones((1, 1))
-    for i, A in enumerate(psi_arrays):
+    last = max(ops) if (right_canonical and ops) else len(psi_arrays) - 1
+    E = np.ones((1, 1))  # (bra, ket)
+    for i in range(last + 1):
+        A = psi_arrays[i]
         B = np.tensordot(_PAULI[ops[i]], A, axes=([1], [1])).transpose(1, 0, 2) if i in ops else A
         E = np.tensordot(np.tensordot(E, B, axes=([1], [0])), A.conj(), axes=([0, 1], [0, 1])).T
-    return complex(E.ravel()[0])
+    return complex(np.trace(E)) if right_canonical else complex(E.ravel()[0])
 
 
 def _single_group_variance(group_terms, group_coeffs, nqubits, psi_arrays) -> float:
     if len(group_terms) == 1:
-        # Var(cP) = |c|^2 (1 - <P>^2) since P^2 = I.
-        ev = pauli_expectation(psi_arrays, group_terms[0]).real
+        # Var(cP) = |c|^2 (1 - <P>^2) since P^2 = I. psi_arrays is right-canonical (see group_variances).
+        ev = pauli_expectation(psi_arrays, group_terms[0], right_canonical=True).real
         return max(abs(group_coeffs[0]) ** 2 * (1.0 - ev**2), 0.0)
     w_arrays = mpo_to_arrays(terms_to_mpo(group_terms, group_coeffs, nqubits))
     mean, sq = expectation_and_square(psi_arrays, w_arrays)
@@ -314,7 +320,9 @@ def group_variances(
             os.environ[v] = "1"
         t0 = time.time()
         try:
-            psi_arrays = mps_to_arrays(psi)
+            psi_rc = psi.copy()
+            psi_rc.right_canonize()
+            psi_arrays = mps_to_arrays(psi_rc)
             with ProcessPoolExecutor(nworkers, initializer=_init_worker, initargs=(list(terms), coeffs, nqubits, psi_arrays)) as ex:
                 futures = {ex.submit(_worker_chunk, c): c for c in chunks}
                 for n, fut in enumerate(as_completed(futures), 1):
