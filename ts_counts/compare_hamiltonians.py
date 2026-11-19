@@ -229,7 +229,7 @@ def run_hamiltonian(name, path):
 def main():
     parser = argparse.ArgumentParser("compare_hamiltonians")
     parser.add_argument("--hamiltonian-dir", type=str, default="../hamiltonians", help="DIR with npz files.")
-    args = parser.parse_args
+    args = parser.parse_args()
     
     hamiltonians = {
         "ts": f"{args.hamiltonian_dir}/ts.npz",
