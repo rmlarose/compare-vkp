@@ -21,6 +21,7 @@ import gc
 import os
 import pickle
 import time
+import argparse
 
 import numpy as np
 import openfermion as of
@@ -35,11 +36,6 @@ import ts_tools
 # Parameters.
 # ----------------------------------------------------------------------------
 
-hamiltonians = {
-    "ts": "../hamiltonians/ts.npz",
-    "product": "../hamiltonians/po3_1w_product_22o.npz",
-    "reactant": "../hamiltonians/po3_1w_reactant_22o.npz",
-}
 cutoffs = [1e-2, 1e-3, 1e-4]  # Pauli-coefficient cutoffs (Ha) for grouping.
 k_values = [44]  # k = nqubits (44): fully-commuting sorted insertion.
 epsilon = 1.6e-3  # Target precision in Ha (chemical accuracy).
@@ -231,6 +227,15 @@ def run_hamiltonian(name, path):
 
 
 def main():
+    parser = argparse.ArgumentParser("compare_hamiltonians")
+    parser.add_argument("--hamiltonian-dir", type=str, default="../hamiltonians", help="DIR with npz files.")
+    args = parser.parse_args
+    
+    hamiltonians = {
+        "ts": f"{args.hamiltonian_dir}/ts.npz",
+        "product": f"{args.hamiltonian_dir}/po3_1w_product_22o.npz",
+        "reactant": f"{args.hamiltonian_dir}/po3_1w_reactant_22o.npz",
+    }
     all_rows = []
     for name, path in hamiltonians.items():
         all_rows += run_hamiltonian(name, path)
