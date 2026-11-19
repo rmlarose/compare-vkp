@@ -344,3 +344,56 @@ def group_variances(
 def shots_from_variances(variances: np.ndarray, epsilon: float) -> float:
     """Shots for precision epsilon with optimal shot allocation: (sum_g sqrt(Var_g))^2 / eps^2."""
     return float(np.sum(np.sqrt(np.clip(variances, 0.0, None))) ** 2 / epsilon**2)
+
+
+# ----------------------------------------------------------------------------
+# Hamiltonian loading and portable ground-state files.
+# ----------------------------------------------------------------------------
+
+def load_hamiltonian(path: str) -> Tuple[of.FermionOperator, of.QubitOperator, int]:
+    """Returns (fermion Hamiltonian, Jordan-Wigner qubit Hamiltonian, number of electrons).
+
+    ts.npz uses ECORE/H1/H2/NELEC; the product/reactant files use e_nuc/h1/h2/nelectron
+    (same chemist-notation H2 and the same role for the constant)."""
+    from openfermion.ops.representations import get_tensors_from_integrals
+
+    h_data = np.load(path)
+    if "H1" in h_data.files:
+        ecore, h1, h2, nelec = h_data["ECORE"], h_data["H1"], h_data["H2"], h_data["NELEC"]
+    else:
+        ecore, h1, h2, nelec = h_data["e_nuc"], h_data["h1"], h_data["h2"], h_data["nelectron"]
+    ecore = float(ecore)  # Stored as a 0-d array; OpenFermion needs a scalar.
+    # H2 is in chemist notation, (pq|rs). get_tensors_from_integrals expects
+    # OpenFermion's MolecularData ordering, two_body_integrals[p,q,r,s] = (ps|qr).
+    h2 = h2.transpose(0, 2, 3, 1)
+    one_body_tensor, two_body_tensor = get_tensors_from_integrals(h1, h2)
+    hamiltonian_op = of.InteractionOperator(
+        constant=ecore, one_body_tensor=one_body_tensor, two_body_tensor=two_body_tensor
+    )
+    fermion_hamiltonian = of.get_fermion_operator(hamiltonian_op)
+    qubit_hamiltonian = of.jordan_wigner(fermion_hamiltonian)
+    return fermion_hamiltonian, qubit_hamiltonian, int(nelec)
+
+
+def save_mps_npz(path: str, psi: qtn.MatrixProductState, **metadata) -> None:
+    """Saves an MPS as plain NumPy arrays (site_i with shape (left, phys, right)) plus
+    scalar/array metadata. Unlike a pickle of the quimb object, this loads with any
+    NumPy/quimb version on any machine."""
+    arrays = mps_to_arrays(psi)
+    np.savez(
+        path,
+        nsites=len(arrays),
+        **{f"site_{i}": a for i, a in enumerate(arrays)},
+        **{k: np.asarray(v) for k, v in metadata.items()},
+    )
+
+
+def load_mps_npz(path: str) -> Tuple[qtn.MatrixProductState, Dict[str, np.ndarray]]:
+    """Inverse of save_mps_npz. Returns (psi, metadata)."""
+    with np.load(path) as data:
+        n = int(data["nsites"])
+        arrays = [data[f"site_{i}"] for i in range(n)]
+        metadata = {k: data[k] for k in data.files if k != "nsites" and not k.startswith("site_")}
+    arrays[0] = arrays[0][0]  # Drop the size-1 boundary bonds.
+    arrays[-1] = arrays[-1][..., 0]
+    return qtn.MatrixProductState(arrays, shape="lpr"), metadata

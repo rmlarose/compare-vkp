@@ -3,8 +3,8 @@ over a range of Pauli-coefficient cutoffs.
 
 Same workflow as ts_counts.ipynb, for each Hamiltonian:
   1. Jordan-Wigner qubit Hamiltonian, non-identity strings sorted by decreasing |c|.
-  2. Ground state from DMRG on an MPO built with the fermionic cutoff `mpo_cutoff`
-     (cached; the TS MPO/ground state from the notebook in results_cutoff_0.001/ are reused).
+  2. Ground state read from <ground-state-dir>/<name>_ground_state.npz, written by
+     ground_states.py (run that first; the .npz files are portable between machines).
   3. For each grouping cutoff and each k: sorted-insertion k-commuting grouping of the strings
      with |c| >= cutoff, exact group variances from the MPS, and shots
      N = (sum_g sqrt(Var_g))^2 / epsilon^2. Only k = 44 = nqubits (full commutation) is used.
@@ -26,9 +26,6 @@ import argparse
 import numpy as np
 import openfermion as of
 import pandas as pd
-import quimb.tensor as qtn
-from openfermion import InteractionOperator, get_fermion_operator, jordan_wigner
-from openfermion.ops.representations import get_tensors_from_integrals
 
 import ts_tools
 
@@ -40,16 +37,15 @@ cutoffs = [1e-2, 1e-3, 1e-4]  # Pauli-coefficient cutoffs (Ha) for grouping.
 k_values = [44]  # k = nqubits (44): fully-commuting sorted insertion.
 epsilon = 1.6e-3  # Target precision in Ha (chemical accuracy).
 
-# DMRG settings (same as ts_counts.ipynb so the cached TS ground state is reused).
-mpo_cutoff = 1e-3
-bond_dims = [16, 32, 64]
-penalty_mu = 2.0
-nworkers = 4  # Processes for multi-string group variances (~1.5 GB each for the largest groups).
+# Worker processes for the variances (set with --nworkers / --nworkers-singles). Each worker is a
+# separate process holding its own copy of the Pauli strings and imports (~0.5 GB), plus up to
+# ~1.5 GB for the largest k = 44 groups, so these, not the core count, set the memory footprint.
+nworkers = 4  # Multi-string groups.
+nworkers_singles = 4  # Cut-off strings measured individually (cheap, low memory per task).
 
-dmrg_dir = f"results_cutoff_{mpo_cutoff:g}"  # <name>_mpo.pkl, <name>_ground_state.pkl
+ground_state_dir = "ground_states"  # <name>_ground_state.npz from ground_states.py (--ground-state-dir).
 results_dir = "results_compare"  # Variance caches.
 output_csv = "hamiltonian_comparison.csv"
-os.makedirs(dmrg_dir, exist_ok=True)
 os.makedirs(results_dir, exist_ok=True)
 
 
@@ -57,85 +53,12 @@ os.makedirs(results_dir, exist_ok=True)
 # Helpers.
 # ----------------------------------------------------------------------------
 
-def load_hamiltonian(path):
-    """Returns (fermion Hamiltonian, qubit Hamiltonian, number of electrons)."""
-    h_data = np.load(path)
-    # ts.npz uses ECORE/H1/H2/NELEC; the product/reactant files use e_nuc/h1/h2/nelectron
-    # (same chemist-notation H2 and the same role for the constant).
-    if "H1" in h_data.files:
-        ecore, h1, h2, nelec = h_data["ECORE"], h_data["H1"], h_data["H2"], h_data["NELEC"]
-    else:
-        ecore, h1, h2, nelec = h_data["e_nuc"], h_data["h1"], h_data["h2"], h_data["nelectron"]
-    ecore = float(ecore)  # Stored as a 0-d array; OpenFermion needs a scalar.
-    # H2 is in chemist notation, (pq|rs). get_tensors_from_integrals expects
-    # OpenFermion's MolecularData ordering, two_body_integrals[p,q,r,s] = (ps|qr).
-    h2 = h2.transpose(0, 2, 3, 1)
-    one_body_tensor, two_body_tensor = get_tensors_from_integrals(h1, h2)
-    hamiltonian_op = InteractionOperator(
-        constant=ecore, one_body_tensor=one_body_tensor, two_body_tensor=two_body_tensor
-    )
-    fermion_hamiltonian = get_fermion_operator(hamiltonian_op)
-    qubit_hamiltonian = jordan_wigner(fermion_hamiltonian)
-    return fermion_hamiltonian, qubit_hamiltonian, int(nelec)
-
-
-def ground_state(name, fermion_hamiltonian, nqubits, nelec):
-    """DMRG ground state (cached in dmrg_dir). Returns the gs_data dict."""
-    gs_file = f"{dmrg_dir}/{name}_ground_state.pkl"
-    if os.path.exists(gs_file):
-        with open(gs_file, "rb") as f:
-            return pickle.load(f)
-
-    mpo_file = f"{dmrg_dir}/{name}_mpo.pkl"
-    if os.path.exists(mpo_file):
-        with open(mpo_file, "rb") as f:
-            mpo_data = pickle.load(f)
-    else:
-        start = time.time()
-        fermion_hamiltonian_no = of.normal_ordered(fermion_hamiltonian)
-        constant = fermion_hamiltonian_no.terms.get((), 0.0).real
-        fermion_hamiltonian_cut = of.FermionOperator()
-        fermion_hamiltonian_cut.terms = {
-            t: c.real for t, c in fermion_hamiltonian_no.terms.items() if t != () and abs(c) >= mpo_cutoff
-        }
-        print(f"[{name}] fermionic terms after MPO cutoff: {len(fermion_hamiltonian_cut.terms)}")
-        mpo = ts_tools.fermion_operator_to_mpo(fermion_hamiltonian_cut, nqubits)
-        mpo_data = {"mpo": mpo, "constant": constant}
-        with open(mpo_file, "wb") as f:
-            pickle.dump(mpo_data, f)
-        print(f"[{name}] built MPO in {time.time() - start:.0f} s")
-
-    mpo, constant = mpo_data["mpo"], mpo_data["constant"]
-    dmrg_mpo = mpo.add_MPO(ts_tools.number_penalty_mpo(nqubits, nelec, mu=penalty_mu))
-
-    # Hartree-Fock plus a small random perturbation (see ts_counts.ipynb).
-    hf = qtn.MPS_computational_state("1" * nelec + "0" * (nqubits - nelec), dtype="float64")
-    noise = qtn.MPS_rand_state(nqubits, bond_dim=bond_dims[0], dtype="float64", seed=0)
-    p0 = hf.add_MPS(noise.multiply(1e-2))
-    p0.compress(max_bond=bond_dims[0])
-    p0.normalize()
-
-    dmrg = qtn.DMRG2(dmrg_mpo, bond_dims=bond_dims, cutoffs=1e-10, p0=p0)
-    start = time.time()
-    dmrg.solve(tol=1e-6, max_sweeps=10, verbosity=1)
-    gs_data = {
-        "psi": dmrg.state,
-        "energy": dmrg.energy.real + constant,
-        "sweep_energies": [e.real + constant for e in dmrg.energies],
-        "bond_dims": bond_dims,
-        "time": time.time() - start,
-    }
-    with open(gs_file, "wb") as f:
-        pickle.dump(gs_data, f)
-    return gs_data
-
-
 def load_cache(path, energy):
     """Variance cache keyed by sorted term indices, reused only for the same ground state."""
     if os.path.exists(path):
         with open(path, "rb") as f:
             saved = pickle.load(f)
-        if np.isclose(saved["energy"], energy):
+        if abs(saved["energy"] - energy) < 1e-9:  # Same ground state (np.isclose is too loose at ~600 Ha).
             return saved["variances"]
     return {}
 
@@ -153,8 +76,25 @@ def sqrt_sum(variances):
 # Main loop.
 # ----------------------------------------------------------------------------
 
+def available_cpus():
+    """CPUs allocated to this job. os.cpu_count() reports every core on a cluster node,
+    not the job's allocation."""
+    if "SLURM_CPUS_PER_TASK" in os.environ:
+        return int(os.environ["SLURM_CPUS_PER_TASK"])
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:  # macOS
+        return os.cpu_count()
+
+
 def run_hamiltonian(name, path):
-    fermion_hamiltonian, qubit_hamiltonian, nelec = load_hamiltonian(path)
+    # Fail early, before the expensive Hamiltonian construction, if the ground state is missing.
+    gs_file = f"{ground_state_dir}/{name}_ground_state.npz"
+    if not os.path.exists(gs_file):
+        raise FileNotFoundError(f"{gs_file} not found: run ground_states.py first and copy it here.")
+
+    fermion_hamiltonian, qubit_hamiltonian, nelec = ts_tools.load_hamiltonian(path)
+    del fermion_hamiltonian
     nqubits = of.count_qubits(qubit_hamiltonian)
 
     # All non-identity strings, sorted by decreasing |c|. Kept strings for a cutoff are a prefix.
@@ -165,10 +105,11 @@ def run_hamiltonian(name, path):
     z_only = np.array([all(p == "Z" for _, p in t) for t in terms])
     print(f"[{name}] {nqubits} qubits, {nelec} electrons, {len(terms)} non-identity strings")
 
-    gs_data = ground_state(name, fermion_hamiltonian, nqubits, nelec)
-    del fermion_hamiltonian, qubit_hamiltonian
+    del qubit_hamiltonian
     gc.collect()
-    psi, energy = gs_data["psi"], gs_data["energy"]
+    psi, gs_meta = ts_tools.load_mps_npz(gs_file)
+    energy = float(gs_meta["energy"])
+    assert psi.L == nqubits and int(gs_meta["nelec"]) == nelec, f"{gs_file} does not match {path}"
     print(f"[{name}] DMRG energy {energy:.6f} Ha (max bond {psi.max_bond()})")
 
     cache_file = f"{results_dir}/{name}_variance_cache.pkl"
@@ -188,7 +129,7 @@ def run_hamiltonian(name, path):
             start = time.time()
             dropped_variances = ts_tools.group_variances(
                 dropped_groups, terms, coeffs, nqubits, psi,
-                cache=cache, nworkers=os.cpu_count(), chunksize=2000,
+                cache=cache, nworkers=nworkers_singles, chunksize=2000,
             )
             save_cache(cache_file, energy, cache)
             sqrt_sum_dropped = sqrt_sum(dropped_variances)
@@ -227,9 +168,22 @@ def run_hamiltonian(name, path):
 
 
 def main():
+    global nworkers, nworkers_singles, ground_state_dir  # run_hamiltonian reads these.
     parser = argparse.ArgumentParser("compare_hamiltonians")
     parser.add_argument("--hamiltonian-dir", type=str, default="../hamiltonians", help="DIR with npz files.")
+    parser.add_argument("--nworkers", type=int, default=nworkers,
+                        help="Worker processes for multi-string group variances.")
+    parser.add_argument("--nworkers-singles", type=int, default=nworkers_singles,
+                        help="Worker processes for the individually measured cut-off strings.")
+    parser.add_argument("--ground-state-dir", type=str, default=ground_state_dir,
+                        help="DIR with <name>_ground_state.npz files from ground_states.py.")
     args = parser.parse_args()
+    ground_state_dir = args.ground_state_dir
+    # Never use more workers than allocated CPUs.
+    nworkers = min(args.nworkers, available_cpus())
+    nworkers_singles = min(args.nworkers_singles, available_cpus())
+    print(f"{available_cpus()} CPUs available; {nworkers} workers for groups, "
+          f"{nworkers_singles} for single strings")
     
     hamiltonians = {
         "ts": f"{args.hamiltonian_dir}/ts.npz",
