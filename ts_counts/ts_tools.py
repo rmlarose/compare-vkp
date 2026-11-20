@@ -217,8 +217,15 @@ def mpo_to_arrays(mpo: qtn.MatrixProductOperator) -> List[np.ndarray]:
     return arrays
 
 
-def expectation_and_square(psi_arrays: List[np.ndarray], w_arrays: List[np.ndarray]) -> Tuple[complex, complex]:
-    """Returns (<psi|O|psi>, <psi|O^2|psi>) by left-to-right environment sweeps."""
+def expectation_and_square(
+    psi_arrays: List[np.ndarray], w_arrays: List[np.ndarray], slice_size: int = 8
+) -> Tuple[complex, complex]:
+    """Returns (<psi|O|psi>, <psi|O^2|psi>) by left-to-right environment sweeps.
+
+    The <O^2> update is done in slices of `slice_size` along the bra bond, accumulating
+    into the new environment. This is exact (same arithmetic) but keeps the 5-index
+    intermediates ~(bra bond / slice_size) times smaller: for MPS bond 64 and MPO bond 96
+    the unsliced update peaks at ~9 GB."""
     E1 = np.ones((1, 1, 1))  # (bra, mpo, ket)
     E2 = np.ones((1, 1, 1, 1))  # (bra, mpo (outer), mpo (inner), ket)
     for A, W in zip(psi_arrays, w_arrays):
@@ -229,11 +236,15 @@ def expectation_and_square(psi_arrays: List[np.ndarray], w_arrays: List[np.ndarr
         E1 = np.tensordot(Ac, T, axes=([0, 1], [0, 2]))  # c d v -> reorder
         E1 = E1.transpose(0, 2, 1)
         # <O^2>
-        T = np.tensordot(E2, A, axes=([3], [0]))  # a w x t d
-        T = np.tensordot(T, W, axes=([2, 3], [0, 2]))  # a w d u y   (inner MPO applied to ket)
-        T = np.tensordot(T, W, axes=([1, 3], [0, 2]))  # a d y s z   (outer MPO)
-        E2 = np.tensordot(Ac, T, axes=([0, 1], [0, 3]))  # c d y z
-        E2 = E2.transpose(0, 3, 2, 1)
+        dtype = np.result_type(E2, A, W)
+        E2_new = np.zeros((A.shape[2], W.shape[3], W.shape[3], A.shape[2]), dtype=dtype)
+        for s in range(0, E2.shape[0], slice_size):
+            T = np.tensordot(E2[s : s + slice_size], A, axes=([3], [0]))  # a w x t d
+            T = np.tensordot(T, W, axes=([2, 3], [0, 2]))  # a w d u y   (inner MPO applied to ket)
+            T = np.tensordot(T, W, axes=([1, 3], [0, 2]))  # a d y s z   (outer MPO)
+            E2_new += np.tensordot(Ac[s : s + slice_size], T, axes=([0, 1], [0, 3])).transpose(0, 3, 2, 1)
+            del T
+        E2 = E2_new
     return complex(E1.ravel()[0]), complex(E2.ravel()[0])
 
 
@@ -260,28 +271,38 @@ def pauli_expectation(psi_arrays: List[np.ndarray], term: PauliTerm, right_canon
     return complex(np.trace(E)) if right_canonical else complex(E.ravel()[0])
 
 
-def _single_group_variance(group_terms, group_coeffs, nqubits, psi_arrays) -> float:
+def _single_group_variance(group_terms, group_coeffs, nqubits, psi_arrays, max_mpo_bond=None) -> Tuple[float, int]:
+    """Returns (variance, exact MPO bond dimension of the group operator).
+
+    If max_mpo_bond is set and the exact MPO is larger, the MPO is SVD-truncated to
+    max_mpo_bond before computing the variance (approximate). The memory of the <O^2>
+    contraction scales as (MPS bond)^2 * (MPO bond)^2, e.g. ~20 GB for MPO bond ~300."""
     if len(group_terms) == 1:
         # Var(cP) = |c|^2 (1 - <P>^2) since P^2 = I. psi_arrays is right-canonical (see group_variances).
         ev = pauli_expectation(psi_arrays, group_terms[0], right_canonical=True).real
-        return max(abs(group_coeffs[0]) ** 2 * (1.0 - ev**2), 0.0)
-    w_arrays = mpo_to_arrays(terms_to_mpo(group_terms, group_coeffs, nqubits))
-    mean, sq = expectation_and_square(psi_arrays, w_arrays)
-    return float(np.real(sq - mean**2))
+        return max(abs(group_coeffs[0]) ** 2 * (1.0 - ev**2), 0.0), 1
+    mpo = terms_to_mpo(group_terms, group_coeffs, nqubits)
+    bond = mpo.max_bond()
+    if max_mpo_bond is not None and bond > max_mpo_bond:
+        mpo.compress(max_bond=max_mpo_bond)
+    mean, sq = expectation_and_square(psi_arrays, mpo_to_arrays(mpo))
+    return float(np.real(sq - mean**2)), bond
 
 
 # Per-worker state for the process pool.
 _WORKER = {}
 
 
-def _init_worker(terms, coeffs, nqubits, psi_arrays):
-    _WORKER.update(terms=terms, coeffs=coeffs, nqubits=nqubits, psi=psi_arrays)
+def _init_worker(terms, coeffs, nqubits, psi_arrays, max_mpo_bond):
+    _WORKER.update(terms=terms, coeffs=coeffs, nqubits=nqubits, psi=psi_arrays, max_mpo_bond=max_mpo_bond)
 
 
 def _worker_chunk(chunk):
     w = _WORKER
     return [
-        _single_group_variance([w["terms"][j] for j in key], [w["coeffs"][j] for j in key], w["nqubits"], w["psi"])
+        _single_group_variance(
+            [w["terms"][j] for j in key], [w["coeffs"][j] for j in key], w["nqubits"], w["psi"], w["max_mpo_bond"]
+        )
         for key in chunk
     ]
 
@@ -296,11 +317,19 @@ def group_variances(
     nworkers: int = None,
     chunksize: int = 50,
     verbose: bool = True,
+    max_mpo_bond: int = None,
+    bond_cache: Dict[Tuple[int, ...], int] = None,
 ) -> np.ndarray:
-    """Variance of each group's operator w.r.t. psi, computed exactly by MPO
+    """Variance of each group's operator w.r.t. psi, computed by MPO
     sandwiches in a process pool. `cache` (keyed by sorted term indices) is
     updated in place, so groups shared between different k (or already
-    computed in an earlier, interrupted run) are not recomputed."""
+    computed in an earlier, interrupted run) are not recomputed.
+
+    Exact unless `max_mpo_bond` is set: then group MPOs with a larger bond
+    dimension are truncated to it (approximate, but bounds the memory). The
+    exact MPO bond dimension of each newly computed group is stored in
+    `bond_cache` if given. Callers must not mix caches computed with
+    different `max_mpo_bond`."""
     import os
     import time
     from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -315,7 +344,7 @@ def group_variances(
         nworkers = nworkers or os.cpu_count()
         chunks = [todo[i : i + chunksize] for i in range(0, len(todo), chunksize)]
         # One BLAS thread per worker; parallelism comes from the pool.
-        env_backup = {v: os.environ.get(v) for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")}
+        env_backup = {v: os.environ.get(v) for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")}
         for v in env_backup:
             os.environ[v] = "1"
         t0 = time.time()
@@ -323,11 +352,13 @@ def group_variances(
             psi_rc = psi.copy()
             psi_rc.right_canonize()
             psi_arrays = mps_to_arrays(psi_rc)
-            with ProcessPoolExecutor(nworkers, initializer=_init_worker, initargs=(list(terms), coeffs, nqubits, psi_arrays)) as ex:
+            with ProcessPoolExecutor(nworkers, initializer=_init_worker, initargs=(list(terms), coeffs, nqubits, psi_arrays, max_mpo_bond)) as ex:
                 futures = {ex.submit(_worker_chunk, c): c for c in chunks}
                 for n, fut in enumerate(as_completed(futures), 1):
-                    for key, var in zip(futures[fut], fut.result()):
+                    for key, (var, bond) in zip(futures[fut], fut.result()):
                         cache[key] = var
+                        if bond_cache is not None:
+                            bond_cache[key] = bond
                     if verbose:
                         print(f"  chunk {n} / {len(chunks)}  ({time.time() - t0:.0f} s)", end="\r")
         finally:
