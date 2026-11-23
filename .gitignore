@@ -164,3 +164,4 @@ cython_debug/
 .DS_Store
 *.pkl
 ts_counts/results_cutoff_*
+ts_counts/ground_states/*
